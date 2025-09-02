@@ -12,7 +12,7 @@ var loadUserList = (function ($) {
     /**
      * 主函数
      */
-    function loadUserList(lang, title) {
+    function loadUserList(lang, title, dashboards) {
         i18n = lang;
         $("#title").text(title);
         $('#content').html(layui.laytpl($('#userListTemplate').html()).render());
@@ -21,7 +21,7 @@ var loadUserList = (function ($) {
         var validatorRules = validator.createRules(i18n);
         layui.form.verify(validatorRules); // 初始化layui表单验证规则
 
-        ui.init(i18n, api, validatorRules);
+        ui.init(i18n, api, validatorRules, dashboards); // 传递 dashboards
         api.init(i18n, ui);
         eventHandlers.init(ui, api, validatorRules);
 
@@ -38,6 +38,10 @@ var loadUserList = (function ($) {
             page: pageOptions,
             toolbar: '#userListToolbarTemplate',
             defaultToolbar: false,
+            initSort: {
+                field: 'create_date',
+                type: 'desc'
+            },
             cols: [[
                 {type: 'checkbox'},
                 {field: 'user', title: i18n['User'], width: 120, sort: true},

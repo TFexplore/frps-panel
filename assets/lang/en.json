@@ -111,5 +111,9 @@
   "Total": "Total ",
   "Items": " items",
   "Go to": "Go to",
-  "Per Page": " / page"
+  "Per Page": " / page",
+  "ConfigTemplate": "Config Template",
+  "PleaseInputConfigTemplate": "Please input config template",
+  "PortCount": "Port Count",
+  "PleaseInputPortCount": "Please input port count"
 }

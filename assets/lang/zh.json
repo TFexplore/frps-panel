@@ -118,5 +118,7 @@
   "EditConfigTemplate": "修改配置模板",
   "ExportConfig": "导出配置",
   "ConfigTemplate": "配置模板",
-  "PleaseInputConfigTemplate": "请输入配置模板"
+  "PleaseInputConfigTemplate": "请输入配置模板",
+  "PortCount": "端口数量",
+  "PleaseInputPortCount": "请输入端口数量"
 }

@@ -257,6 +257,97 @@ func (c *HandleController) MakeLangFunc() func(context *gin.Context) {
 			"Goto":                  ginI18n.MustGetMessage(context, "Go to"),
 			"PerPage":               ginI18n.MustGetMessage(context, "Per Page"),
 			"ConfigTemplate":               ginI18n.MustGetMessage(context, "ConfigTemplate"), // 新增
+			"PortCount":               ginI18n.MustGetMessage(context, "PortCount"), // 新增
+			"PleaseInputPortCount":               ginI18n.MustGetMessage(context, "PleaseInputPortCount"), // 新增
+		})
+	}
+}
+
+func (c *HandleController) MakeGetMaxPortFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		serverName := context.Query("server")
+		if serverName == "" {
+			context.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Server name is required",
+			})
+			return
+		}
+
+		maxPort := 0
+		for _, tokenInfo := range c.Tokens {
+			if tokenInfo.Server == serverName {
+				for _, p := range tokenInfo.Ports {
+					switch v := p.(type) {
+					case int:
+						if v > maxPort {
+							maxPort = v
+						}
+					case string:
+						// 处理 "10000-10200" 格式的端口范围
+						parts := strings.Split(v, "-")
+						if len(parts) == 2 {
+							endPort, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+							if err == nil && endPort > maxPort {
+								maxPort = endPort
+							}
+						} else {
+							// 如果是单个端口号的字符串形式，例如 "8080"
+							singlePort, err := strconv.Atoi(strings.TrimSpace(v))
+							if err == nil && singlePort > maxPort {
+								maxPort = singlePort
+							}
+						}
+					}
+				}
+			}
+		}
+
+		context.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"maxPort": maxPort,
+			"message": "Get max port success",
+		})
+	}
+}
+
+func (c *HandleController) MakeGetAllMaxPortsFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		maxPortsMap := make(map[string]int)
+
+		for _, tokenInfo := range c.Tokens {
+			serverName := tokenInfo.Server
+			if _, ok := maxPortsMap[serverName]; !ok {
+				maxPortsMap[serverName] = 0
+			}
+
+			for _, p := range tokenInfo.Ports {
+				switch v := p.(type) {
+				case int:
+					if v > maxPortsMap[serverName] {
+						maxPortsMap[serverName] = v
+					}
+				case string:
+					parts := strings.Split(v, "-")
+					if len(parts) == 2 {
+						endPort, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+						if err == nil && endPort > maxPortsMap[serverName] {
+							maxPortsMap[serverName] = endPort
+						}
+					} else {
+						singlePort, err := strconv.Atoi(strings.TrimSpace(v))
+						if err == nil && singlePort > maxPortsMap[serverName] {
+							maxPortsMap[serverName] = singlePort
+						}
+					}
+				}
+			}
+		}
+
+		context.JSON(http.StatusOK, gin.H{
+			"success":     true,
+			"maxPortsMap": maxPortsMap,
+			"message":     "Get all max ports success",
 		})
 	}
 }

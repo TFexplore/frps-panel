@@ -55,4 +55,6 @@ func (c *HandleController) Register(rootDir string, engine *gin.Engine) {
 	group.GET("/proxy/*serverApi", c.MakeProxyFunc())
 	group.GET("/dashboards", c.MakeQueryDashboardsFunc())
 	group.POST("/switch_dashboard", c.MakeSwitchDashboardFunc())
+	group.GET("/get_max_port", c.MakeGetMaxPortFunc())
+	group.GET("/get_all_max_ports", c.MakeGetAllMaxPortsFunc())
 }

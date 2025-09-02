@@ -81,6 +81,28 @@
         });
     }
 
+    function getMaxPort(serverName) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/get_max_port', // 假设后端有一个这样的接口
+                type: 'get',
+                data: {server: serverName},
+                success: function (result) {
+                    if (result.success) {
+                        resolve(result.maxPort);
+                    } else {
+                        ui.errorMsg(result);
+                        reject(result);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    layui.layer.msg(i18n['NetworkError'] + ': ' + error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
     exports.init = function (lang, uiModule) {
         i18n = lang;
         ui = uiModule;
@@ -90,5 +112,28 @@
     exports.add = add;
     exports.update = update;
     exports.operate = operate;
+    exports.getMaxPort = getMaxPort;
+
+    function getAllMaxPorts() {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/get_all_max_ports', // 假设后端有一个这样的接口
+                type: 'get',
+                success: function (result) {
+                    if (result.success) {
+                        resolve(result.maxPortsMap);
+                    } else {
+                        ui.errorMsg(result);
+                        reject(result);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    layui.layer.msg(i18n['NetworkError'] + ': ' + error);
+                    reject(error);
+                }
+            });
+        });
+    }
+    exports.getAllMaxPorts = getAllMaxPorts;
 
 })(window.UserListAPI = window.UserListAPI || {}, layui.$);

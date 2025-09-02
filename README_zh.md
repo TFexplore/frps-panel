@@ -1,6 +1,10 @@
 # frps-panel(支持 FRP >= 0.52.0)  
 go build -o ./bin/frps-panel ./cmd/frps-panel
 frps-panel.exe -c ./frps-panel.toml 
+windows：
+$env:CGO_ENABLED="0"; $env:GOOS="windows"; $env:GOARCH="amd64"; go build -ldflags "-s -w" -o ./release/frps-panel-windows-amd64.exe ./cmd/frps-panel
+Linux：
+ $env:CGO_ENABLED="0"; $env:GOOS="linux"; $env:GOARCH="amd64"; go build -ldflags "-s -w" -o ./release/frps-panel-linux-amd64 ./cmd/frps-panel
 
 [README](README.md) | [中文文档](README_zh.md)
 

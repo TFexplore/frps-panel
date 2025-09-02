@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>${ .FrpsPanel }</title>
+    <link rel="stylesheet" href="./static/lib/layui/css/layui.css?v=${ .version }">
+    <link rel="stylesheet" href="./static/css/layui-theme-dark.css?v=${ .version }">
+    <link rel="stylesheet" href="./static/css/index.css?v=${ .version }">
+    <link rel="stylesheet" href="./static/css/color.css?v=${ .version }">
+    <script src="./static/lib/layui/layui.js?v=${ .version }"></script>
+    <script src="./static/lib/echarts.min.js?v=${ .version }"></script>
+    <script src="./static/lib/filesize.min.js?v=${ .version }"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="./static/js/user-list-modules/validator.js?v=${ .version }"></script>
+    <script src="./static/js/user-list-modules/ui.js?v=${ .version }"></script>
+    <script src="./static/js/user-list-modules/api.js?v=${ .version }"></script>
+    <script src="./static/js/user-list-modules/eventHandlers.js?v=${ .version }"></script>
+    <script src="./static/js/index-user-list.js?v=${ .version }"></script>
+            <script src="./static/js/index-server-info.js?v=${ .version }"></script>
+    <script src="./static/js/index-proxy-list.js?v=${ .version }"></script>
+    <script src="./static/js/index.js?v=${ .version }"></script>
+    <style>
+        section.user-list .layui-table-cell:empty::after {
+            content: '${ .NotLimit }';
+        }
+
+        td[data-field=comment] .layui-table-cell:empty::after {
+            content: '${ .None }';
+        }
+    </style>
+</head>
+<body>
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header layui-bg-blue">
+        <div class="layui-logo layui-bg-black">${ .FrpsPanel }</div>
+        <div class="layui-title">
+            <span id="title"></span>
+            ${ if .showExit }
+            <span class="layui-icon layui-icon-logout" id="logout"></span>
+            ${ end }
+        </div>
+        <ul class="layui-nav layui-layout-right" lay-filter="dashboardList">
+            <li class="layui-nav-item">
+                <a href="javascript:;">
+                    <span id="currentDashboardName"></span>
+                </a>
+                <dl class="layui-nav-child" id="dashboardListDropdown">
+                    <!-- Dashboard items will be rendered here by JavaScript -->
+                </dl>
+            </li>
+        </ul>
+    </div>
+    <div class="layui-side layui-bg-black">
+        <div class="layui-side-scroll">
+            <ul class="layui-nav layui-nav-tree" lay-filter="leftNav" id="leftNav">
+                <li class="layui-nav-item layui-this">
+                    <a href="javascript:void(0)" id="serverInfo">${ .ServerInfo }</a>
+                </li>
+                <li class="layui-nav-item">
+                    <a href="javascript:void(0)" id="userList">${ .Users }</a>
+                </li>
+                <li class="layui-nav-item layui-nav-itemed" id="proxyList">
+                    <a class="" href="javascript:void(0)">${ .Proxies }</a>
+                    <dl class="layui-nav-child">
+                        <dd>
+                            <a href="javascript:void(0)" id="tcp">TCP</a>
+                        </dd>
+                        <dd>
+                            <a href="javascript:void(0)" id="udp">UDP</a>
+                        </dd>
+                        <dd>
+                            <a href="javascript:void(0)" id="http">HTTP</a>
+                        </dd>
+                        <dd>
+                            <a href="javascript:void(0)" id="https">HTTPS</a>
+                        </dd>
+                        <dd>
+                            <a href="javascript:void(0)" id="stcp">STCP</a>
+                        </dd>
+                        <dd>
+                            <a href="javascript:void(0)" id="sudp">SUDP</a>
+                        </dd>
+                    </dl>
+                </li>
+            </ul>
+        </div>
+        <div class="version">
+            <a href="https://github.com/fatedier/frp" target="_blank">Frp <span id="frpVersion"></span></a>
+            <span> | </span>
+            <a href="https://github.com/yhl452493373/frps-panel" target="_blank">${ .FrpsPanel } ${ .version }</a>
+        </div>
+    </div>
+    <div class="layui-body" id="content"></div>
+</div>
+
+<!--服务器信息模板-->
+<script type="text/html" id="serverInfoTemplate">
+    <section class="server-info">
+        <div class="text-info">
+            <div class="text-row">
+                <div class="text-col">${ .Version }</div>
+                <div class="text-col">{{= d.version }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .BindPort }</div>
+                <div class="text-col">{{= d.bindPort }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .KCPBindPort }</div>
+                <div class="text-col">{{= d.kcpBindPort }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .QUICBindPort }</div>
+                <div class="text-col">{{= d.quicBindPort }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .HTTPPort }</div>
+                <div class="text-col">{{= d.vhostHTTPPort }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .HTTPSPort }</div>
+                <div class="text-col">{{= d.vhostHTTPSPort }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .TCPMUXPort }</div>
+                <div class="text-col">{{= d.tcpmuxHTTPConnectPort }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .SubdomainHost }</div>
+                <div class="text-col">{{= d.subdomainHost }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .MaxPoolCount }</div>
+                <div class="text-col">{{= d.maxPoolCount }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .MaxPortsPerClient }</div>
+                <div class="text-col">{{= d.maxPortsPerClient }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .HeartBeatTimeout }</div>
+                <div class="text-col">{{= d.heartbeatTimeout }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .AllowPorts }</div>
+                <div class="text-col">{{= d.allowPortsStr }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .TLSOnly }</div>
+                <div class="text-col">{{= d.tlsForce }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .CurrentConnections }</div>
+                <div class="text-col">{{= d.curConns }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .ClientCounts }</div>
+                <div class="text-col">{{= d.clientCounts }}</div>
+            </div>
+            <div class="text-row">
+                <div class="text-col">${ .ProxyCounts }</div>
+                <div class="text-col">{{= d.proxyCounts }}</div>
+            </div>
+        </div>
+        <div class="chart-info">
+            <div class="chart-traffic">
+                <div id="trafficPieChart"></div>
+            </div>
+            <div class="chart-count">
+                <div id="countPieChart"></div>
+            </div>
+        </div>
+    </section>
+</script>
+
+<!--用户列表模板-->
+<script type="text/html" id="userListTemplate">
+    <section class="user-list">
+        <form class="layui-form layui-row layui-col-space16" id="searchForm" lay-filter="searchForm">
+            <div class="layui-col-md3">
+                <div class="layui-input-wrap">
+                    <div class="layui-input-prefix">
+                        <i class="layui-icon layui-icon-username"></i>
+                    </div>
+                    <input type="text" name="user" placeholder="${ .User }" class="layui-input" autocomplete="off"
+                           lay-affix="clear">
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-input-wrap">
+                    <div class="layui-input-prefix">
+                        <i class="layui-icon layui-icon-vercode"></i>
+                    </div>
+                    <input type="text" name="token" placeholder="${ .Token }" class="layui-input" autocomplete="off"
+                           lay-affix="clear">
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-input-wrap">
+                    <div class="layui-input-prefix">
+                        <i class="layui-icon layui-icon-note"></i>
+                    </div>
+                    <input type="text" name="comment" placeholder="${ .Notes }" class="layui-input" autocomplete="off"
+                           lay-affix="clear">
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-input-wrap">
+                    <div class="layui-input-prefix">
+                        <i class="layui-icon layui-icon-link"></i>
+                    </div>
+                    <select name="server" lay-filter="serverFilter">
+                        <option value="">${ .AllServers }</option>
+                        <!-- 服务器列表将由 JavaScript 填充 -->
+                    </select>
+                </div>
+            </div>
+            <div class="layui-col-md3">
+                <div class="layui-btn-container">
+                    <button class="layui-btn layui-btn-sm" id="searchBtn">${ .Search }</button>
+                    <button class="layui-btn layui-btn-sm layui-btn-primary" type="reset" id="resetBtn">${ .Reset }
+                    </button>
+                </div>
+            </div>
+        </form>
+        <table id="tokenTable" lay-filter="tokenTable"></table>
+    </section>
+</script>
+
+<!--用户列表-表格工具条按钮模板-->
+<script type="text/html" id="userListToolbarTemplate">
+    <div class="layui-btn-container">
+        <button class="layui-btn layui-btn-sm" lay-event="add">${ .NewUser }</button>
+        <button class="layui-btn layui-btn-sm" lay-event="remove">${ .RemoveUser }</button>
+        <button class="layui-btn layui-btn-sm" lay-event="disable">${ .DisableUser }</button>
+<button class="layui-btn layui-btn-sm" lay-event="enable">${ .EnableUser }</button>
+        <button class="layui-btn layui-btn-sm" lay-event="editConfigTemplate">${ .EditConfigTemplate }</button>
+    </div>
+</script>
+
+<!--用户列表-操作按钮模板-->
+<script type="text/html" id="userListOperationTemplate">
+    <div class="layui-clear-space">
+        <a class="layui-btn layui-btn-xs" lay-event="remove">${ .Remove }</a>
+        <a class="layui-btn layui-btn-xs" lay-event="exportConfig">${ .ExportConfig }</a>
+        {{# if (d.enable) { }}
+        <a class="layui-btn layui-btn-xs" lay-event="disable">${ .Disable }</a>
+        {{# } else { }}
+        <a class="layui-btn layui-btn-xs" lay-event="enable">${ .Enable }</a>
+        {{# } }}
+    </div>
+</script>
+
+<!--用户列表-添加用户表单模板-->
+<script type="text/html" id="addUserTemplate">
+    <form class="layui-form" id="addUserForm" lay-filter="addUserForm">
+        <div class="layui-form-item">
+            <label class="layui-form-label">${ .User }</label>
+            <div class="layui-input-block">
+                <input type="text" name="user" lay-verify="user" placeholder="${ .PleaseInputUserAccount }"
+                       autocomplete="off" class="layui-input"/>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">${ .Token }</label>
+            <div class="layui-input-block">
+                <input type="text" name="token" lay-verify="token" placeholder="${ .PleaseInputUserToken }"
+                       autocomplete="off" class="layui-input"/>
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">${ .Notes }</label>
+            <div class="layui-input-block">
+                <textarea name="comment" lay-verify="comment" placeholder="${ .PleaseInputUserNotes }"
+                          autocomplete="off" class="layui-textarea"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">${ .AllowedPorts }</label>
+            <div class="layui-input-block">
+                <textarea name="ports" lay-verify="ports" placeholder="${ .PleaseInputAllowedPorts }"
+                          autocomplete="off" class="layui-textarea"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">${ .PortCount }</label>
+            <div class="layui-input-block">
+                <input type="number" name="portsCount" placeholder="${ .PleaseInputPortCount }"
+                       autocomplete="off" class="layui-input" min="1" value="1"/>
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">${ .AllowedDomains }</label>
+            <div class="layui-input-block">
+                <textarea name="domains" lay-verify="domains" placeholder="${ .PleaseInputAllowedDomains }"
+                          autocomplete="off" class="layui-textarea"></textarea>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">${ .Server }</label>
+            <div class="layui-input-block">
+                <select name="server" lay-verify="required" lay-filter="addServerFilter">
+                    <option value="">${ .PleaseSelectServer }</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">${ .ExpireDate }</label>
+            <div class="layui-input-block">
+                <input type="text" name="expire_date" id="expireDate" placeholder="${ .PleaseSelectExpireDate }"
+                       autocomplete="off" class="layui-input"/>
+            </div>
+        </div>
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label">${ .AllowedSubdomains }</label>
+            <div class="layui-input-block">
+                <textarea name="subdomains" lay-verify="subdomains" placeholder="${ .PleaseInputAllowedSubdomains }"
+                          autocomplete="off" class="layui-textarea"></textarea>
+            </div>
+        </div>
+    </form>
+</script>
+
+<!--代理列表-代理表格模板-->
+<script type="text/html" id="proxyListTableTemplate">
+    <section class="proxy-list">
+        <table id="proxyListTable" lay-filter="proxyListTable"></table>
+    </section>
+</script>
+
+<!--代理列表-代理表格展示代理详情的箭头模板-->
+<script type="text/html" id="toggleProxyInfoArrowTemplate">
+    <i class='layui-icon layui-icon-triangle-r toggle-proxy-info-arrow' data-index='{{ d.LAY_INDEX }}'
+       lay-event='toggleProxyInfo'></i>
+</script>
+
+<!--代理列表-代理列表每行展开后的表格模板-->
+<script type="text/html" id="expandTrTemplate">
+    <tr class="layui-hide proxy-info" id="childTr_{{= d.index }}">
+        <td></td>
+        <td colspan="{{= d.colspan }}">
+            <div class="layui-row">
+                <div class="layui-col-xs12">
+                    <div class="layui-row">
+                        <div class="layui-col-md12">
+                            <input type="hidden" value="{{= d.data.name }}">
+                            <div class="layui-btn traffic-statistics">${ .TrafficStatistics }</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{# if (d.proxyType === 'http' || d.proxyType === 'https') { }}
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Name }</div>
+                        <div class="layui-col-md9">{{= d.data.name }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Type }</div>
+                        <div class="layui-col-md9">{{= d.proxyType.toUpperCase() }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Domains }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.customDomains }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .SubDomain }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.subdomain }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Locations }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.locations }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .HostRewrite }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.hostHeaderRewrite }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Encryption }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.transport.useEncryption }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Compression }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.transport.useCompression }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .LastStart }</div>
+                        <div class="layui-col-md9">{{= d.data.lastStartTime }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .LastClose }</div>
+                        <div class="layui-col-md9">{{= d.data.lastCloseTime }}</div>
+                    </div>
+                </div>
+            </div>
+            {{# } else { }}
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Name }</div>
+                        <div class="layui-col-md9">{{= d.data.name }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Type }</div>
+                        <div class="layui-col-md9">{{= d.proxyType.toUpperCase() }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Addr }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.remotePort }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Encryption }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.transport.useEncryption }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .Compression }</div>
+                        <div class="layui-col-md9">{{= d.data.conf.transport.useCompression }}</div>
+                    </div>
+                </div>
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .LastStart }</div>
+                        <div class="layui-col-md9">{{= d.data.lastStartTime }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-row">
+                <div class="layui-col-xs6">
+                    <div class="layui-row">
+                        <div class="layui-col-md3">${ .LastClose }</div>
+                        <div class="layui-col-md9">{{= d.data.lastCloseTime }}</div>
+                    </div>
+                </div>
+            </div>
+            {{# } }}
+        </td>
+    </tr>
+</script>
+
+<!--代理列表-每个代理的最近7天流量统计模板-->
+<script type="text/html" id="trafficStaticTemplate">
+    <div id="trafficBarChart"></div>
+</script>
+</body>
+</html>

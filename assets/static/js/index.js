@@ -28,7 +28,7 @@ var httpPort, httpsPort, pageOptions;
                     if (id === 'serverInfo') {
                         loadServerInfo(lang, title.trim());
                     } else if (id === 'userList') {
-                        loadUserList(lang, title.trim());
+                        loadUserList(lang, title.trim(), dashboardsData); // 传递 dashboardsData
                     } else if (elem.closest('.layui-nav-item').attr('id') === 'proxyList') {
                         if (id != null && id.trim() !== '') {
                             var suffix = elem.closest('.layui-nav-item').children('a').text().trim();
@@ -49,24 +49,25 @@ var httpPort, httpsPort, pageOptions;
                     currentIndex = index;
                 }
 
-                $('#leftNav .layui-this > a').click();
                 loadDashboards(lang, updateCurrentIndex); // Load dashboards after language is loaded
             }).always(function () {
                 layui.layer.close(langLoading);
             });
         }
 
+        var dashboardsData = []; // 用于存储 dashboards 数据
+
         function loadDashboards(lang, updateCurrentIndexCallback) {
             $.getJSON('/dashboards').done(function (res) {
                 if (res.code === 0) {
-                    var dashboards = res.data;
+                    dashboardsData = res.data; // 存储 dashboards 数据
                     var currentIndex = res.current_index;
                     var dropdown = $('#dashboardListDropdown');
                     dropdown.empty(); // Clear existing items
 
-                    if (dashboards && dashboards.length > 0) {
-                        $('#currentDashboardName').text(dashboards[currentIndex].name);
-                        $.each(dashboards, function (index, dashboard) {
+                    if (dashboardsData && dashboardsData.length > 0) {
+                        $('#currentDashboardName').text(dashboardsData[currentIndex].name);
+                        $.each(dashboardsData, function (index, dashboard) {
                             var activeClass = (index === currentIndex) ? 'layui-this' : '';
                             dropdown.append('<dd class="' + activeClass + '"><a href="javascript:;" data-index="' + index + '">' + dashboard.name + '</a></dd>');
                         });
@@ -80,6 +81,9 @@ var httpPort, httpsPort, pageOptions;
                 }
             }).fail(function () {
                 layui.layer.msg(lang['OperateFailed'] + ': ' + lang['OtherError']);
+            }).always(function () {
+                // 在 dashboards 加载完成后，再触发左侧导航的点击事件
+                $('#leftNav .layui-this > a').click();
             });
         }
 
@@ -118,6 +122,6 @@ var httpPort, httpsPort, pageOptions;
             logout();
         });
 
-        init();
+        init(); // 确保 init 函数只被调用一次
     });
 })(layui.$);
