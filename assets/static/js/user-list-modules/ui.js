@@ -5,6 +5,31 @@
     var api = null; // 将在主文件中注入
     var validatorRules = null; // 将在主文件中注入
     var dashboardsData = []; // 用于存储 dashboards 数据
+    var defaultConfigTemplate = ''; // 存储配置模板
+    
+    // 加载配置模板
+    function loadConfigTemplate() {
+        $.ajax({
+            url: '../static/config_template.json',
+            type: 'GET',
+            dataType: 'json',
+            async: false, // 同步请求，确保在使用前加载完成
+            success: function(data) {
+                if (data && data.template) {
+                    defaultConfigTemplate = data.template;
+                } else {
+                    console.error('配置模板格式错误');
+                    // 设置一个默认值，以防加载失败
+                    defaultConfigTemplate = '#frpc 配置模板加载失败';
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('加载配置模板失败:', error);
+                // 设置一个默认值，以防加载失败
+                defaultConfigTemplate = '#frpc 配置模板加载失败';
+            }
+        });
+    }
 
     // 生成随机字符串的辅助函数
     function generateRandomString(length, characters) {
@@ -72,8 +97,16 @@
             title: i18n['NewUser'],
             area: ['500px'],
             content: layui.laytpl(document.getElementById('addUserTemplate').innerHTML).render(),
-            success: function () {
-                layui.laydate.render({elem: '#expireDate', type: 'datetime', format: 'yyyy-MM-dd HH:mm:ss'});
+            success: function (layero, index) { // 捕获 layui.layer.open 的 index
+                layui.laydate.render({
+                    elem: '#expireDate',
+                    type: 'datetime',
+                    format: 'yyyy-MM-dd HH:mm:ss',
+                    done: function(value, date, endDate){
+                        // 在日期选择完成后，自动关闭日期选择器
+
+                    }
+                });
 
                 // 生成 6 位随机 user (只包含大小写字母)
                 var randomUser = generateRandomString(6, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz');
@@ -179,28 +212,6 @@
         });
     }
 
-    var defaultConfigTemplate = 
-`#frpc 0.60.0 ,请尽量使用相同版本避免因版本不同导致错误    
-serverAddr ={ServerIP}
-serverPort = {ServerPort}
-user = {User}
-metadatas.token = {token}
-auth.method = "token"
-auth.token = "token123456"
-#上面是认证信息，不要修改
-#下面的是一个完整连接的结构，其他协议请自行搜索frpc配置
-[[proxies]]
-type = "tcp"
-#每个连接一个名称，不能重复
-name="{ProxyName}"
-localIP = "127.00.1"
-#请填写需要远程访问的本地端口
-localPort = 22
-#不用动，每个连接一个远程端口，访问时 serverAddr:remotePort 作为地址
-#默认分配连续端口，下面的是第一个远程端口
-remotePort = {Port}
-transport.useEncryption = true
-transport.useCompression = true`;
 
     function editConfigTemplatePopup() {
         layui.layer.open({
@@ -218,9 +229,18 @@ transport.useCompression = true`;
             </form>`,
             btn: [i18n['Confirm'], i18n['Cancel']],
             btn1: function (index) {
-                defaultConfigTemplate = $('#configTemplateEditor').val();
-                layui.layer.close(index);
-                layui.layer.msg(i18n['OperateSuccess']);
+                var newTemplate = $('#configTemplateEditor').val();
+                // 保存到内存中
+                defaultConfigTemplate = newTemplate;
+                
+                // 调用API保存到文件
+                api.saveConfigTemplate(newTemplate)
+                    .then(function() {
+                        layui.layer.close(index);
+                    })
+                    .catch(function(error) {
+                        console.error('保存配置模板失败:', error);
+                    });
             },
             btn2: function (index) {
                 layui.layer.close(index);
@@ -297,6 +317,7 @@ transport.useCompression = true`;
         api = apiModule;
         validatorRules = validatorModuleRules;
         dashboardsData = dashboards; // 存储 dashboards 数据
+        loadConfigTemplate(); // 加载配置模板
     };
 
     exports.reloadTable = reloadTable;
@@ -317,9 +338,9 @@ transport.useCompression = true`;
             if (type === api.type.Remove) {
                 api.operate(api.type.Remove, data);
             } else if (type === api.type.Disable) {
-                api.disable(data);
+                api.operate(api.type.Disable, data);
             } else if (type === api.type.Enable) {
-                api.enable(data);
+                api.operate(api.type.Enable, data);
             }
         });
     }

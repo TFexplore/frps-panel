@@ -7,10 +7,13 @@ import (
 	"fmt"
 	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	ginI18n "github.com/gin-contrib/i18n"
+	"github.com/gin-contrib/sessions" // 导入 sessions 包
 	"github.com/gin-gonic/gin"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -78,12 +81,17 @@ func (c *HandleController) MakeHandlerFunc() gin.HandlerFunc {
 func (c *HandleController) MakeLoginFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		if context.Request.Method == "GET" {
-			if c.LoginAuth("", "", context) {
-				if context.Request.RequestURI == LoginUrl {
-					context.Redirect(http.StatusTemporaryRedirect, LoginSuccessUrl)
-				}
+			session := sessions.Default(context)
+			userRole := session.Get(UserRoleName)
+
+			if userRole == UserRoleAdmin {
+				context.Redirect(http.StatusTemporaryRedirect, LoginSuccessUrl)
+				return
+			} else if userRole == UserRoleNormal {
+				context.Redirect(http.StatusTemporaryRedirect, UserDashboardUrl)
 				return
 			}
+
 			context.HTML(http.StatusOK, "login.html", gin.H{
 				"version":             c.Version,
 				"FrpsPanel":           ginI18n.MustGetMessage(context, "Frps Panel"),
@@ -97,9 +105,16 @@ func (c *HandleController) MakeLoginFunc() func(context *gin.Context) {
 			username := context.PostForm("username")
 			password := context.PostForm("password")
 			if c.LoginAuth(username, password, context) {
+				session := sessions.Default(context)
+				userRole := session.Get(UserRoleName)
+				redirectUrl := LoginSuccessUrl
+				if userRole == UserRoleNormal {
+					redirectUrl = UserDashboardUrl
+				}
 				context.JSON(http.StatusOK, gin.H{
-					"success": true,
-					"message": ginI18n.MustGetMessage(context, "Login success"),
+					"success":   true,
+					"message":   ginI18n.MustGetMessage(context, "Login success"),
+					"redirect":  redirectUrl,
 				})
 			} else {
 				context.JSON(http.StatusOK, gin.H{
@@ -120,6 +135,14 @@ func (c *HandleController) MakeLogoutFunc() func(context *gin.Context) {
 
 func (c *HandleController) MakeIndexFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		userRole := session.Get(UserRoleName)
+
+		if userRole != UserRoleAdmin {
+			context.Redirect(http.StatusTemporaryRedirect, UserDashboardUrl)
+			return
+		}
+
 		context.HTML(http.StatusOK, "index.html", gin.H{
 			"version":                      c.Version,
 			"showExit":                     trimString(c.CommonInfo.AdminUser) != "" && trimString(c.CommonInfo.AdminPwd) != "",
@@ -188,6 +211,59 @@ func (c *HandleController) MakeIndexFunc() func(context *gin.Context) {
 			"PleaseInputConfigTemplate":               ginI18n.MustGetMessage(context, "PleaseInputConfigTemplate"), // 新增
 			"ExportConfig":               ginI18n.MustGetMessage(context, "ExportConfig"), // 新增
 			"EditConfigTemplate":               ginI18n.MustGetMessage(context, "EditConfigTemplate"), // 新增
+		})
+	}
+}
+
+func (c *HandleController) MakeUserDashboardFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		currentUser := session.Get("current_user")
+		if currentUser == nil {
+			context.Redirect(http.StatusTemporaryRedirect, LoginUrl)
+			return
+		}
+
+		context.HTML(http.StatusOK, "user_dashboard.html", gin.H{
+			"version":     c.Version,
+			"FrpsPanel":   ginI18n.MustGetMessage(context, "Frps Panel"),
+			"User":        fmt.Sprintf("%v", currentUser),
+			"Logout":      ginI18n.MustGetMessage(context, "Logout"),
+			"MyInfo":      ginI18n.MustGetMessage(context, "My Info"),
+			"MyProxies":   ginI18n.MustGetMessage(context, "My Proxies"),
+			"Name":        ginI18n.MustGetMessage(context, "Name"),
+			"Type":        ginI18n.MustGetMessage(context, "Type"),
+			"Domains":     ginI18n.MustGetMessage(context, "Domains"),
+			"SubDomain":   ginI18n.MustGetMessage(context, "SubDomain"),
+			"Locations":   ginI18n.MustGetMessage(context, "Locations"),
+			"HostRewrite": ginI18n.MustGetMessage(context, "HostRewrite"),
+			"Encryption":  ginI18n.MustGetMessage(context, "Encryption"),
+			"Compression": ginI18n.MustGetMessage(context, "Compression"),
+			"Addr":        ginI18n.MustGetMessage(context, "Addr"),
+			"LastStart":   ginI18n.MustGetMessage(context, "Last Start"),
+			"LastClose":   ginI18n.MustGetMessage(context, "Last Close"),
+			"Connections": ginI18n.MustGetMessage(context, "Connections"),
+			"TrafficIn":   ginI18n.MustGetMessage(context, "Traffic In"),
+			"TrafficOut":  ginI18n.MustGetMessage(context, "Traffic Out"),
+			"ClientVersion": ginI18n.MustGetMessage(context, "Client Version"),
+			"TrafficStatistics": ginI18n.MustGetMessage(context, "Traffic Statistics"),
+			"online":      ginI18n.MustGetMessage(context, "online"),
+			"offline":     ginI18n.MustGetMessage(context, "offline"),
+			"Total":       ginI18n.MustGetMessage(context, "Total"),
+			"Items":       ginI18n.MustGetMessage(context, "Items"),
+			"Goto":        ginI18n.MustGetMessage(context, "Go to"),
+			"PerPage":     ginI18n.MustGetMessage(context, "Per Page"),
+			"NotSet":      ginI18n.MustGetMessage(context, "Not Set"),
+			"Proxy":       ginI18n.MustGetMessage(context, "Proxy"),
+			"Token":       ginI18n.MustGetMessage(context, "Token"),
+			"Notes":       ginI18n.MustGetMessage(context, "Notes"),
+			"AllowedPorts": ginI18n.MustGetMessage(context, "Allowed ports"),
+			"AllowedDomains": ginI18n.MustGetMessage(context, "Allowed domains"),
+			"AllowedSubdomains": ginI18n.MustGetMessage(context, "Allowed subdomains"),
+			"NotLimit":    ginI18n.MustGetMessage(context, "Not limit"),
+			"None":        ginI18n.MustGetMessage(context, "None"),
+			"CreateDate":  ginI18n.MustGetMessage(context, "Create Date"),
+			"ExpireDate":  ginI18n.MustGetMessage(context, "Expire Date"),
 		})
 	}
 }
@@ -352,8 +428,196 @@ func (c *HandleController) MakeGetAllMaxPortsFunc() func(context *gin.Context) {
 	}
 }
 
+func (c *HandleController) MakeQueryUserInfoFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		currentUser := fmt.Sprintf("%v", session.Get("current_user"))
+
+		if currentUser == "" {
+			context.JSON(http.StatusUnauthorized, &TokenResponse{
+				Code:  ParamError,
+				Msg:   "User not logged in",
+				Count: 0,
+				Data:  []TokenInfo{},
+			})
+			return
+		}
+
+		tokenInfo, ok := c.Tokens[currentUser]
+		if !ok {
+			context.JSON(http.StatusNotFound, &TokenResponse{
+				Code:  UserNotExist,
+				Msg:   "User info not found",
+				Count: 0,
+				Data:  []TokenInfo{},
+			})
+			return
+		}
+
+		context.JSON(http.StatusOK, &TokenResponse{
+			Code:  0,
+			Msg:   "query user info success",
+			Count: 1,
+			Data:  []TokenInfo{tokenInfo},
+		})
+	}
+}
+
+func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		currentUser := fmt.Sprintf("%v", session.Get("current_user"))
+
+		if currentUser == "" {
+			context.JSON(http.StatusUnauthorized, gin.H{
+				"code":    ParamError,
+				"msg":     "User not logged in",
+				"count":   0,
+				"data":    []interface{}{},
+			})
+			return
+		}
+
+		// 调用 MakeProxyFunc 的核心逻辑来获取所有代理信息
+		// 这里需要模拟 MakeProxyFunc 的行为，或者重构 MakeProxyFunc 使其可复用
+		// 为了简化，我们直接在这里实现代理查询和过滤逻辑
+		var client *http.Client
+		var protocol string
+
+		if c.CurrentDashboardIndex >= len(c.Dashboards) {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "No dashboard configured or invalid current index",
+			})
+			return
+		}
+
+		currentDashboard := c.Dashboards[c.CurrentDashboardIndex]
+
+		if currentDashboard.DashboardTls {
+			client = &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+			protocol = "https://"
+		} else {
+			client = http.DefaultClient
+			protocol = "http://"
+		}
+
+		res := ProxyResponse{}
+		host := currentDashboard.DashboardAddr
+		port := currentDashboard.DashboardPort
+
+		host, _ = strings.CutPrefix(host, protocol)
+
+		// 从查询参数中获取 proxyType，如果未提供则默认为 "http"
+		proxyType := context.DefaultQuery("proxyType", "http")
+		// 构建请求 frps 的代理列表 API
+		requestUrl := protocol + host + ":" + strconv.Itoa(port) + "/api/proxy/" + proxyType
+		request, _ := http.NewRequest("GET", requestUrl, nil)
+		username := currentDashboard.DashboardUser
+		password := currentDashboard.DashboardPwd
+		if trimString(username) != "" && trimString(password) != "" {
+			request.SetBasicAuth(username, password)
+			log.Printf("Proxy to %s", requestUrl)
+		}
+
+		response, err := client.Do(request)
+
+		if err != nil {
+			res.Code = FrpServerError
+			res.Success = false
+			res.Message = err.Error()
+			log.Print(err)
+			context.JSON(http.StatusOK, &res)
+			return
+		}
+
+		res.Code = response.StatusCode
+		body, err := io.ReadAll(response.Body)
+
+		if err != nil {
+			res.Success = false
+			res.Message = err.Error()
+		} else {
+			if res.Code == http.StatusOK {
+				var frpsProxies struct {
+					Proxies []struct {
+						Name        string `json:"name"`
+						Type        string `json:"type"`
+						Status      string `json:"status"`
+						Connections int    `json:"curConns"`
+						TrafficIn   int64  `json:"todayTrafficIn"`
+						TrafficOut  int64  `json:"todayTrafficOut"`
+						ClientVersion string `json:"clientVersion"`
+						LastStart   string `json:"lastStartTime"`
+						LastClose   string `json:"lastCloseTime"`
+						Conf        struct {
+							RemotePort int `json:"remotePort"`
+							Transport  struct {
+								UseEncryption bool `json:"useEncryption"`
+								UseCompression bool `json:"useCompression"`
+							} `json:"transport"`
+						} `json:"conf"`
+					} `json:"proxies"`
+				}
+				if err := json.Unmarshal(body, &frpsProxies); err != nil {
+					res.Success = false
+					res.Message = fmt.Sprintf("Failed to parse frps proxy response: %v", err)
+					context.JSON(http.StatusOK, &res)
+					return
+				}
+
+				var userProxies []gin.H
+				for _, proxy := range frpsProxies.Proxies {
+					if strings.HasPrefix(proxy.Name, currentUser) {
+						userProxies = append(userProxies, gin.H{
+							"Name":           proxy.Name,
+							"Type":           proxy.Type,
+							"Status":         proxy.Status,
+							"Connections":   proxy.Connections,
+							"TrafficIn":     proxy.TrafficIn,
+							"TrafficOut":    proxy.TrafficOut,
+							"ClientVersion": proxy.ClientVersion,
+							"LastStart":      proxy.LastStart,
+							"LastClose":      proxy.LastClose,
+							"RemotePort":     proxy.Conf.RemotePort,
+							"UseEncryption":  proxy.Conf.Transport.UseEncryption,
+							"UseCompression": proxy.Conf.Transport.UseCompression,
+						})
+					}
+				}
+
+				context.JSON(http.StatusOK, gin.H{
+					"code":  0,
+					"msg":   "query user proxies success",
+					"count": len(userProxies),
+					"data":  userProxies,
+				})
+				return
+			} else {
+				res.Success = false
+				if res.Code == http.StatusNotFound {
+					res.Message = fmt.Sprintf("Proxy to %s error: url not found", requestUrl)
+				} else {
+					res.Message = fmt.Sprintf("Proxy to %s error: %s", requestUrl, string(body))
+				}
+			}
+		}
+		log.Printf(res.Message)
+		context.JSON(http.StatusOK, &res)
+	}
+}
+
 func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		userRole := session.Get(UserRoleName)
+		currentUser := fmt.Sprintf("%v", session.Get("current_user"))
 
 		search := TokenSearch{}
 		search.Limit = 0
@@ -365,6 +629,10 @@ func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 
 		var tokenList []TokenInfo
 		for _, tokenInfo := range c.Tokens {
+			// 如果是普通用户，只显示自己的信息
+			if userRole == UserRoleNormal && tokenInfo.User != currentUser {
+				continue
+			}
 			tokenList = append(tokenList, tokenInfo)
 		}
 		sort.Slice(tokenList, func(i, j int) bool {
@@ -377,8 +645,15 @@ func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 			if search.Server != "" && tokenInfo.Server != search.Server {
 				continue
 			}
-			if filter(tokenInfo, search.TokenInfo) {
-				filtered = append(filtered, tokenInfo)
+			// 如果是普通用户，强制过滤为当前用户
+			if userRole == UserRoleNormal {
+				if tokenInfo.User == currentUser && filter(tokenInfo, search.TokenInfo) {
+					filtered = append(filtered, tokenInfo)
+				}
+			} else { // 管理员用户
+				if filter(tokenInfo, search.TokenInfo) {
+					filtered = append(filtered, tokenInfo)
+				}
 			}
 		}
 		if filtered == nil {
@@ -391,7 +666,6 @@ func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 			end := min(search.Page*search.Limit, len(filtered))
 			filtered = filtered[start:end]
 		}
-
 		context.JSON(http.StatusOK, &TokenResponse{
 			Code:  0,
 			Msg:   "query Tokens success",
@@ -660,10 +934,36 @@ func (c *HandleController) MakeEnableTokensFunc() func(context *gin.Context) {
 
 func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		userRole := session.Get(UserRoleName)
+
+		// For normal users, only return non-sensitive dashboard information
+		if userRole == UserRoleNormal {
+			type UserDashboardInfo struct {
+				Name          string `json:"name"`
+				DashboardAddr string `json:"dashboard_addr"`
+			}
+			var userDashboards []UserDashboardInfo
+			for _, dashboard := range c.Dashboards {
+				userDashboards = append(userDashboards, UserDashboardInfo{
+					Name:          dashboard.Name,
+					DashboardAddr: dashboard.DashboardAddr,
+				})
+			}
+			context.JSON(http.StatusOK, gin.H{
+				"code":          0,
+				"msg":           "success",
+				"data":          userDashboards,
+				"current_index": c.CurrentDashboardIndex,
+			})
+			return
+		}
+
+		// For admin users, return all dashboard information
 		context.JSON(http.StatusOK, gin.H{
-			"code": 0,
-			"msg":  "success",
-			"data": c.Dashboards,
+			"code":          0,
+			"msg":           "success",
+			"data":          c.Dashboards,
 			"current_index": c.CurrentDashboardIndex,
 		})
 	}
@@ -694,6 +994,60 @@ func (c *HandleController) MakeSwitchDashboardFunc() func(context *gin.Context) 
 		context.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "Dashboard switched successfully",
+		})
+	}
+}
+
+func (c *HandleController) MakeSaveConfigTemplateFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		var req struct {
+			Template string `json:"template"`
+		}
+		if err := context.BindJSON(&req); err != nil {
+			context.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid request body",
+			})
+			return
+		}
+
+		// 构建配置模板文件路径
+		assets := filepath.Join("assets", "static", "config_template.json")
+		_, err := os.Stat(assets)
+		if err != nil && !os.IsExist(err) {
+			assets = "./assets/static/config_template.json"
+		}
+
+		// 创建JSON对象
+		configTemplate := struct {
+			Template string `json:"template"`
+		}{
+			Template: req.Template,
+		}
+
+		// 将JSON对象转换为字节
+		jsonData, err := json.MarshalIndent(configTemplate, "", "  ")
+		if err != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Failed to marshal JSON: " + err.Error(),
+			})
+			return
+		}
+
+		// 写入文件
+		err = os.WriteFile(assets, jsonData, 0644)
+		if err != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Failed to write file: " + err.Error(),
+			})
+			return
+		}
+
+		context.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Config template saved successfully",
 		})
 	}
 }

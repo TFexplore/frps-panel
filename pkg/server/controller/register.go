@@ -35,26 +35,31 @@ func (c *HandleController) Register(rootDir string, engine *gin.Engine) {
 	engine.GET(LoginUrl, c.MakeLoginFunc())
 	engine.POST(LoginUrl, c.MakeLoginFunc())
 	engine.GET(LogoutUrl, c.MakeLogoutFunc())
+	engine.GET(UserDashboardUrl, c.MakeUserDashboardFunc()) // 新增普通用户仪表板路由
 
-	var group *gin.RouterGroup
+	var adminGroup *gin.RouterGroup
 	if len(c.CommonInfo.AdminUser) != 0 {
-		//group = engine.Group("/", gin.BasicAuthForRealm(gin.Accounts{
-		//	c.CommonInfo.User: c.CommonInfo.Pwd,
-		//}, "Restricted"))
-		group = engine.Group("/", c.BasicAuth())
+		adminGroup = engine.Group("/", c.BasicAuth())
 	} else {
-		group = engine.Group("/")
+		adminGroup = engine.Group("/")
 	}
-	group.GET("/", c.MakeIndexFunc())
-	group.GET("/tokens", c.MakeQueryTokensFunc())
-	group.POST("/add", c.MakeAddTokenFunc())
-	group.POST("/update", c.MakeUpdateTokensFunc())
-	group.POST("/remove", c.MakeRemoveTokensFunc())
-	group.POST("/disable", c.MakeDisableTokensFunc())
-	group.POST("/enable", c.MakeEnableTokensFunc())
-	group.GET("/proxy/*serverApi", c.MakeProxyFunc())
-	group.GET("/dashboards", c.MakeQueryDashboardsFunc())
-	group.POST("/switch_dashboard", c.MakeSwitchDashboardFunc())
-	group.GET("/get_max_port", c.MakeGetMaxPortFunc())
-	group.GET("/get_all_max_ports", c.MakeGetAllMaxPortsFunc())
+	adminGroup.GET("/", c.MakeIndexFunc())
+	adminGroup.GET("/tokens", c.MakeQueryTokensFunc())
+	adminGroup.POST("/add", c.MakeAddTokenFunc())
+	adminGroup.POST("/update", c.MakeUpdateTokensFunc())
+	adminGroup.POST("/remove", c.MakeRemoveTokensFunc())
+	adminGroup.POST("/disable", c.MakeDisableTokensFunc())
+	adminGroup.POST("/enable", c.MakeEnableTokensFunc())
+	adminGroup.GET("/proxy/*serverApi", c.MakeProxyFunc())
+	adminGroup.GET("/dashboards", c.MakeQueryDashboardsFunc())
+	adminGroup.POST("/switch_dashboard", c.MakeSwitchDashboardFunc())
+	adminGroup.GET("/get_max_port", c.MakeGetMaxPortFunc())
+	adminGroup.GET("/get_all_max_ports", c.MakeGetAllMaxPortsFunc())
+	adminGroup.POST("/save_config_template", c.MakeSaveConfigTemplateFunc())
+
+	// 普通用户API路由
+	userApiGroup := engine.Group("/api/user", c.BasicAuth())
+	userApiGroup.GET("/info", c.MakeQueryUserInfoFunc())    // 新增获取用户信息的API
+	userApiGroup.GET("/proxies", c.MakeQueryUserProxiesFunc()) // 新增获取用户代理列表的API
+	userApiGroup.GET("/dashboards", c.MakeQueryDashboardsFunc())
 }

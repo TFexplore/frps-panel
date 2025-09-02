@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>用户仪表盘</title>
+    <link rel="stylesheet" href="../static/lib/layui/css/layui.css?v=${ .version }">
+    <link rel="stylesheet" href="../static/css/layui-theme-dark.css?v=${ .version }">
+    <link rel="stylesheet" href="../static/css/color.css?v=${ .version }">
+    <link rel="stylesheet" href="../static/css/index.css?v=${ .version }">
+    <script src="../static/lib/layui/layui.js?v=${ .version }"></script>
+    <script src="../static/lib/echarts.min.js?v=${ .version }"></script>
+    <script src="../static/lib/filesize.min.js?v=${ .version }"></script>
+</head>
+<body>
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header">
+        <div class="layui-logo">
+            <span class="title-text">${ .FrpsPanel }</span>
+            <span class="title-version">${ .version }</span>
+        </div>
+        <ul class="layui-nav layui-layout-right">
+            <li class="layui-nav-item">
+                <a href="javascript:;">
+                    用户：${ .User }
+                </a>
+                <dl class="layui-nav-child">
+                    <dd><a href="/logout">退出登录</a></dd>
+                </dl>
+            </li>
+        </ul>
+    </div>
+
+    <div class="layui-side layui-bg-black">
+        <div class="layui-side-scroll">
+            <ul class="layui-nav layui-nav-tree" lay-filter="test">
+                <li class="layui-nav-item layui-nav-itemed">
+                    <a class="javascript:;" href="javascript:;">我的信息</a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" data-url="/api/user/info" data-id="1" data-title="我的信息" class="site-demo-active" data-type="tabAdd">我的信息</a></dd>
+                    </dl>
+                </li>
+                <li class="layui-nav-item">
+                    <a class="javascript:;" href="javascript:;">我的代理</a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" data-url="/api/user/proxies" data-id="2" data-title="我的代理" class="site-demo-active" data-type="tabAdd">我的代理</a></dd>
+                    </dl>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="layui-body">
+        <div class="layui-tab layui-tab-brief" lay-filter="tab" lay-allowClose="true">
+            <ul class="layui-tab-title">
+                <li class="layui-this" lay-id="1">我的信息</li>
+            </ul>
+            <div class="layui-tab-content">
+                <div class="layui-tab-item layui-show">
+                    <div class="layui-fluid">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md12">
+                                <div class="layui-card">
+                                    <div class="layui-card-header">我的信息</div>
+                                    <div class="layui-card-body">
+                                        <table class="layui-hide" id="userInfoTable" lay-filter="userInfoTable"></table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-tab-item">
+                    <div class="layui-fluid">
+                        <div class="layui-row layui-col-space15">
+                            <div class="layui-col-md12">
+                                <div class="layui-card">
+                                    <div class="layui-card-header">我的代理</div>
+                                    <div class="layui-card-body">
+                                        <table class="layui-hide" id="userProxiesTable" lay-filter="userProxiesTable"></table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layui-footer">
+        © frps-panel
+    </div>
+</div>
+
+<script type="text/html" id="userToolbar">
+    <div class="layui-btn-container">
+        <button class="layui-btn layui-btn-sm" lay-event="export">导出配置</button>
+        <button class="layui-btn layui-btn-sm" lay-event="refresh">刷新</button>
+    </div>
+</script>
+
+<script type="text/html" id="proxyToolbar">
+    <div class="layui-btn-container">
+        <div class="layui-form" lay-filter="proxyTypeForm" style="display: inline-block; margin-right: 10px;">
+            <div class="layui-form-item" style="margin-bottom: 0;">
+                <div class="layui-input-inline" style="width: 100px;">
+                    <select name="proxyType" id="proxyTypeSelect" lay-filter="proxyTypeSelect">
+                        <option value="tcp" selected>TCP</option>
+                        <option value="udp">UDP</option>
+                        <option value="http">HTTP</option>
+                        <option value="https">HTTPS</option>
+                        <option value="stcp">STCP</option>
+                        <option value="sudp">SUDP</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <button class="layui-btn layui-btn-sm" lay-event="refresh">刷新</button>
+    </div>
+</script>
+
+<script type="text/html" id="proxyStatusTpl">
+    {{#  if(d.Status === 'online'){ }}
+    <span class="layui-badge layui-bg-green">在线</span>
+    {{#  } else { }}
+    <span class="layui-badge layui-bg-red">离线</span>
+    {{#  } }}
+</script>
+
+<script type="text/html" id="proxyTrafficTpl">
+    {{#  if(d.TrafficIn){ }}
+    <span>{{ filesize(d.TrafficIn) }} / {{ filesize(d.TrafficOut) }}</span>
+    {{#  } else { }}
+    <span>0B / 0B</span>
+    {{#  } }}
+</script>
+
+<script src="../static/js/user_dashboard.js?v=${ .version }"></script>
+</body>
+</html>

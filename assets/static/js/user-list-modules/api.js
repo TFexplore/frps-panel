@@ -136,4 +136,29 @@
     }
     exports.getAllMaxPorts = getAllMaxPorts;
 
+    function saveConfigTemplate(template) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/save_config_template',
+                type: 'post',
+                contentType: 'application/json',
+                data: JSON.stringify({ template: template }),
+                success: function (result) {
+                    if (result.success) {
+                        layui.layer.msg(i18n['OperateSuccess']);
+                        resolve(result);
+                    } else {
+                        ui.errorMsg({ code: 0, message: result.message });
+                        reject(result);
+                    }
+                },
+                error: function (xhr, status, error) {
+                    layui.layer.msg(i18n['NetworkError'] + ': ' + error);
+                    reject(error);
+                }
+            });
+        });
+    }
+    exports.saveConfigTemplate = saveConfigTemplate;
+
 })(window.UserListAPI = window.UserListAPI || {}, layui.$);

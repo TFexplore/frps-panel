@@ -35,6 +35,13 @@ const (
 	LoginSuccessUrl  = "/"
 	LogoutUrl        = "/logout"
 	LogoutSuccessUrl = "/login"
+	UserDashboardUrl = "/user/dashboard" // 新增普通用户仪表板URL
+)
+
+const (
+	UserRoleAdmin  = "admin"
+	UserRoleNormal = "normal"
+	UserRoleName   = "_PANEL_USER_ROLE" // 新增用户角色会话键
 )
 
 var (

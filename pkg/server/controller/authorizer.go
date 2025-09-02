@@ -12,34 +12,43 @@ import (
 
 func (c *HandleController) BasicAuth() gin.HandlerFunc {
 	return func(context *gin.Context) {
+		session := sessions.Default(context)
+		auth := session.Get(AuthName)
+		userRole := session.Get(UserRoleName)
+
+		// 如果未设置管理员账户，则直接放行
 		if trimString(c.CommonInfo.AdminUser) == "" || trimString(c.CommonInfo.AdminPwd) == "" {
 			if context.Request.RequestURI == LoginUrl {
 				context.Redirect(http.StatusTemporaryRedirect, LoginSuccessUrl)
 			}
+			context.Next()
 			return
 		}
 
-		session := sessions.Default(context)
-		auth := session.Get(AuthName)
-
-		if auth != nil {
+		if auth != nil && userRole != nil {
 			if c.CommonInfo.AdminKeepTime > 0 {
 				cookie, _ := context.Request.Cookie(SessionName)
 				if cookie != nil {
-					//important thx https://blog.csdn.net/zhanghongxia8285/article/details/107321838/
 					cookie.Expires = time.Now().Add(time.Second * time.Duration(c.CommonInfo.AdminKeepTime))
 					http.SetCookie(context.Writer, cookie)
 				}
 			}
 
-			username, password, _ := parseBasicAuth(fmt.Sprintf("%v", auth))
-
-			usernameMatch := username == c.CommonInfo.AdminUser
-			passwordMatch := password == c.CommonInfo.AdminPwd
-
-			if usernameMatch && passwordMatch {
-				context.Next()
-				return
+			// 验证管理员
+			if userRole == UserRoleAdmin {
+				username, password, _ := parseBasicAuth(fmt.Sprintf("%v", auth))
+				usernameMatch := username == c.CommonInfo.AdminUser
+				passwordMatch := password == c.CommonInfo.AdminPwd
+				if usernameMatch && passwordMatch {
+					context.Next()
+					return
+				}
+			} else if userRole == UserRoleNormal { // 验证普通用户
+				// 检查请求路径是否是用户仪表板
+				if context.Request.RequestURI == UserDashboardUrl || strings.HasPrefix(context.Request.RequestURI, "/api/user/") {
+					context.Next()
+					return
+				}
 			}
 		}
 
@@ -54,34 +63,45 @@ func (c *HandleController) BasicAuth() gin.HandlerFunc {
 }
 
 func (c *HandleController) LoginAuth(username, password string, context *gin.Context) bool {
-	if trimString(c.CommonInfo.AdminUser) == "" || trimString(c.CommonInfo.AdminPwd) == "" {
-		return true
-	}
-
 	session := sessions.Default(context)
 
-	sessionAuth := session.Get(AuthName)
-	internalAuth := encodeBasicAuth(c.CommonInfo.AdminUser, c.CommonInfo.AdminPwd)
-
-	if sessionAuth == internalAuth {
+	// 1. 尝试管理员登录
+	adminAuth := encodeBasicAuth(c.CommonInfo.AdminUser, c.CommonInfo.AdminPwd)
+	if encodeBasicAuth(username, password) == adminAuth {
+		session.Set(AuthName, adminAuth)
+		session.Set(UserRoleName, UserRoleAdmin)
+		_ = session.Save()
 		return true
-	} else {
-		basicAuth := encodeBasicAuth(username, password)
-		if basicAuth == internalAuth {
-			session.Set(AuthName, basicAuth)
+	}
+
+	// 2. 尝试普通用户登录
+	for _, tokenInfo := range c.Tokens {
+		if tokenInfo.Enable && tokenInfo.User == username && tokenInfo.Token == password {
+			// 检查用户是否过期
+			if tokenInfo.ExpireDate != "" {
+				expireTime, err := time.Parse("2006-01-02 15:04:05", tokenInfo.ExpireDate)
+				if err == nil && time.Now().After(expireTime) {
+					return false // 用户已过期
+				}
+			}
+			session.Set(AuthName, encodeBasicAuth(username, password)) // 存储用户凭证
+			session.Set(UserRoleName, UserRoleNormal)
+			session.Set("current_user", username) // 存储当前登录的普通用户
 			_ = session.Save()
 			return true
-		} else {
-			session.Delete(AuthName)
-			_ = session.Save()
-			return false
 		}
 	}
+
+	// 登录失败，清除会话
+	ClearAuth(context)
+	return false
 }
 
 func ClearAuth(context *gin.Context) {
 	session := sessions.Default(context)
 	session.Delete(AuthName)
+	session.Delete(UserRoleName)
+	session.Delete("current_user")
 	_ = session.Save()
 }
 

@@ -10,8 +10,19 @@
         server = "Default FRP Server"
         create_date = "2025-09-02 11:07:57"
         expire_date = "2025-09-30 00:00:00"
-    [tokens.qKOatV]
-        user = "qKOatV"
+    [tokens.LPuZOC]
+        user = "LPuZOC"
+        token = "tgBS1gH15lmy48SSFqQ2jf00AvWwqKTF"
+        comment = ""
+        ports = ["10223-10253"]
+        domains = [""]
+        subdomains = [""]
+        enable = true
+        server = "Default FRP Server"
+        create_date = "2025-09-02 16:09:42"
+        expire_date = "2025-09-30 00:00:00"
+    [tokens.Rdrake]
+        user = "Rdrake"
         token = "xndkTR0b9sLXh6hEdaTD7Tbf8rGlAvi8"
         comment = ""
         ports = [10201, 10202, 10203, 10204]
@@ -21,17 +32,28 @@
         server = "Default FRP Server"
         create_date = "2025-09-02 11:05:31"
         expire_date = "2025-09-30 00:00:00"
-    [tokens.tZfaDA]
-        user = "tZfaDA"
-        token = "gJQ3YcgfHNziRZh61UIH22Lpjbr8BgwJ"
+    [tokens.cRMlCP]
+        user = "cRMlCP"
+        token = "rhJDw5HAAafJMlHnNxODWQFJIfJAFgzI"
         comment = ""
-        ports = [10205, 10206, 10207, 10208, 10209, 10210, 10211, 10212, 10213, 10214, 10215]
+        ports = ["10000-10020"]
+        domains = [""]
+        subdomains = [""]
+        enable = true
+        server = "Another FRP Server"
+        create_date = "2025-09-02 16:15:24"
+        expire_date = "2025-09-30 00:00:00"
+    [tokens.klQpfU]
+        user = "klQpfU"
+        token = "W2yHnjAaY339USJDtefxei1plJprJQ6e"
+        comment = ""
+        ports = ["10254-10264"]
         domains = [""]
         subdomains = [""]
         enable = true
         server = "Default FRP Server"
-        create_date = "2025-09-02 11:06:23"
-        expire_date = "2025-09-02 00:00:00"
+        create_date = "2025-09-02 16:13:21"
+        expire_date = "2025-09-30 00:00:00"
     [tokens.user1]
         user = "user1"
         token = "token1"
@@ -40,9 +62,9 @@
         domains = ["web01.domain.com", "web02.domain.com"]
         subdomains = ["web01", "web02"]
         enable = false
-        server = ""
-        create_date = ""
-        expire_date = ""
+        server = "未配置"
+        create_date = "未配置"
+        expire_date = "2025-09-30 00:00:00"
     [tokens.user2]
         user = "user2"
         token = "token2"
@@ -54,25 +76,3 @@
         server = ""
         create_date = ""
         expire_date = ""
-    [tokens.xx1]
-        user = "xx1"
-        token = "ssxxx"
-        comment = ""
-        ports = [""]
-        domains = [""]
-        subdomains = [""]
-        enable = true
-        server = "Default FRP Server"
-        create_date = "2025-09-01 18:25:11"
-        expire_date = "2025-09-31 00:00:00"
-    [tokens.xxx2]
-        user = "xxx2"
-        token = "xxxxxx"
-        comment = ""
-        ports = [""]
-        domains = [""]
-        subdomains = [""]
-        enable = true
-        server = "Another FRP Server"
-        create_date = "2025-09-02 09:23:40"
-        expire_date = "2025-09-30 00:00:00"

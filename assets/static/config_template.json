@@ -1,0 +1,3 @@
+{
+  "template": "#frpc 0.60.0 ,请尽量使用相同版本避免因版本不同导致错误\nserverAddr = {ServerIP}\nserverPort = 7200\nuser = {User}\nmetadatas.token = {token}\nauth.method = \"token\"\nauth.token = \"token123456\"\n#上面是认证信息，不要修改\n#下面的是一个完整连接的结构，其他协议请自行搜索frpc配置\n[[proxies]]\ntype = \"tcp\"\n#每个连接一个名称，不能重复\nname=\"{ProxyName}\"\nlocalIP = \"127.0.1\"\n#请填写需要远程访问的本地端口\nlocalPort = 22\n#不用动，每个连接一个远程端口，访问时 serverAddr:remotePort 作为地址\n#默认分配连续端口，下面的是第一个远程端口\nremotePort = {Port}\ntransport.useEncryption = true\ntransport.useCompression = true"
+}
