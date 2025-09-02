@@ -1,4 +1,6 @@
-# frps-panel(支持 FRP >= 0.52.0)
+# frps-panel(支持 FRP >= 0.52.0)  
+go build -o ./bin/frps-panel ./cmd/frps-panel
+frps-panel.exe -c ./frps-panel.toml 
 
 [README](README.md) | [中文文档](README_zh.md)
 

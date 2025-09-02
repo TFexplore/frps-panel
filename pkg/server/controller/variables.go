@@ -16,6 +16,7 @@ const (
 	PortsFormatError
 	DomainsFormatError
 	SubdomainsFormatError
+	ExpireDateFormatError // 新增到期时间格式错误
 	FrpServerError
 )
 
@@ -44,6 +45,7 @@ var (
 	portsFormatRange  = regexp.MustCompile("^\\s*\\d{1,5}\\s*-\\s*\\d{1,5}\\s*$")
 	domainFormat      = regexp.MustCompile("^([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\\.)+[a-zA-Z]{2,}$")
 	subdomainFormat   = regexp.MustCompile("^[a-zA-z0-9-]{1,20}$")
+	expireDateFormat  = regexp.MustCompile("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$") // 新增到期时间格式
 	trimAllSpace      = regexp.MustCompile("[\\n\\t\\r\\s]")
 )
 
@@ -57,7 +59,8 @@ type HTTPError struct {
 }
 
 type Common struct {
-	Common CommonInfo
+	Common CommonInfo `toml:"common"`
+	Dashboards []DashboardConfig `toml:"dashboards"`
 }
 
 type CommonInfo struct {
@@ -69,11 +72,15 @@ type CommonInfo struct {
 	TlsMode       bool   `toml:"tls_mode"`
 	TlsCertFile   string `toml:"tls_cert_file"`
 	TlsKeyFile    string `toml:"tls_key_file"`
-	DashboardAddr string `toml:"dashboard_addr"`
-	DashboardPort int    `toml:"dashboard_port"`
-	DashboardUser string `toml:"dashboard_user"`
-	DashboardPwd  string `toml:"dashboard_pwd"`
-	DashboardTls  bool
+}
+
+type DashboardConfig struct {
+	Name          string `toml:"name" json:"name"`
+	DashboardAddr string `toml:"dashboard_addr" json:"dashboard_addr"`
+	DashboardPort int    `toml:"dashboard_port" json:"dashboard_port"`
+	DashboardUser string `toml:"dashboard_user" json:"dashboard_user"`
+	DashboardPwd  string `toml:"dashboard_pwd" json:"dashboard_pwd"`
+	DashboardTls  bool   `json:"dashboard_tls"`
 }
 
 type Tokens struct {
@@ -88,6 +95,9 @@ type TokenInfo struct {
 	Domains    []string `toml:"domains" json:"domains" from:"domains"`
 	Subdomains []string `toml:"subdomains" json:"subdomains" from:"subdomains"`
 	Enable     bool     `toml:"enable" json:"enable" form:"enable"`
+	Server     string   `toml:"server" json:"server" form:"server"`         // 新增服务器名称
+	CreateDate string   `toml:"create_date" json:"create_date" form:"create_date"` // 新增创建日期
+	ExpireDate string   `toml:"expire_date" json:"expire_date" form:"expire_date"` // 新增到期时间
 }
 
 type TokenResponse struct {

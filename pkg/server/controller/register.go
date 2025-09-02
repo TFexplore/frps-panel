@@ -7,11 +7,13 @@ import (
 )
 
 type HandleController struct {
-	CommonInfo CommonInfo
-	Tokens     map[string]TokenInfo
-	Version    string
-	ConfigFile string
-	TokensFile string
+	CommonInfo            CommonInfo
+	Tokens                map[string]TokenInfo
+	Version               string
+	ConfigFile            string
+	TokensFile            string
+	Dashboards            []DashboardConfig
+	CurrentDashboardIndex int
 }
 
 func NewHandleController(config *HandleController) *HandleController {
@@ -51,4 +53,6 @@ func (c *HandleController) Register(rootDir string, engine *gin.Engine) {
 	group.POST("/disable", c.MakeDisableTokensFunc())
 	group.POST("/enable", c.MakeEnableTokensFunc())
 	group.GET("/proxy/*serverApi", c.MakeProxyFunc())
+	group.GET("/dashboards", c.MakeQueryDashboardsFunc())
+	group.POST("/switch_dashboard", c.MakeSwitchDashboardFunc())
 }

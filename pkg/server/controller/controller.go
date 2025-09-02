@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (c *HandleController) MakeHandlerFunc() gin.HandlerFunc {
@@ -177,6 +178,16 @@ func (c *HandleController) MakeIndexFunc() func(context *gin.Context) {
 			"CurrentConnections":           ginI18n.MustGetMessage(context, "Current Connections"),
 			"ClientCounts":                 ginI18n.MustGetMessage(context, "Client Counts"),
 			"ProxyCounts":                  ginI18n.MustGetMessage(context, "Proxy Counts"),
+			"Server":                       ginI18n.MustGetMessage(context, "Server"), // 新增
+			"CreateDate":                   ginI18n.MustGetMessage(context, "Create Date"), // 新增
+			"ExpireDate":                   ginI18n.MustGetMessage(context, "Expire Date"), // 新增
+			"PleaseInputServerName":        ginI18n.MustGetMessage(context, "Please input server name"), // 新增
+			"PleaseSelectExpireDate":       ginI18n.MustGetMessage(context, "Please select expire date"), // 新增
+			"AllServers":                   ginI18n.MustGetMessage(context, "All Servers"), // 新增
+			"ConfigTemplate":               ginI18n.MustGetMessage(context, "ConfigTemplate"), // 新增
+			"PleaseInputConfigTemplate":               ginI18n.MustGetMessage(context, "PleaseInputConfigTemplate"), // 新增
+			"ExportConfig":               ginI18n.MustGetMessage(context, "ExportConfig"), // 新增
+			"EditConfigTemplate":               ginI18n.MustGetMessage(context, "EditConfigTemplate"), // 新增
 		})
 	}
 }
@@ -186,6 +197,9 @@ func (c *HandleController) MakeLangFunc() func(context *gin.Context) {
 		context.JSON(http.StatusOK, gin.H{
 			"User":                  ginI18n.MustGetMessage(context, "User"),
 			"Token":                 ginI18n.MustGetMessage(context, "Token"),
+			"Server":                ginI18n.MustGetMessage(context, "Server"),
+			"CreateDate":            ginI18n.MustGetMessage(context, "Create Date"),
+			"ExpireDate":            ginI18n.MustGetMessage(context, "Expire Date"),
 			"Notes":                 ginI18n.MustGetMessage(context, "Notes"),
 			"Status":                ginI18n.MustGetMessage(context, "Status"),
 			"Operation":             ginI18n.MustGetMessage(context, "Operation"),
@@ -242,6 +256,7 @@ func (c *HandleController) MakeLangFunc() func(context *gin.Context) {
 			"Items":                 ginI18n.MustGetMessage(context, "Items"),
 			"Goto":                  ginI18n.MustGetMessage(context, "Go to"),
 			"PerPage":               ginI18n.MustGetMessage(context, "Per Page"),
+			"ConfigTemplate":               ginI18n.MustGetMessage(context, "ConfigTemplate"), // 新增
 		})
 	}
 }
@@ -267,6 +282,10 @@ func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 
 		var filtered []TokenInfo
 		for _, tokenInfo := range tokenList {
+			// 添加服务器名称过滤
+			if search.Server != "" && tokenInfo.Server != search.Server {
+				continue
+			}
 			if filter(tokenInfo, search.TokenInfo) {
 				filtered = append(filtered, tokenInfo)
 			}
@@ -311,6 +330,10 @@ func (c *HandleController) MakeAddTokenFunc() func(context *gin.Context) {
 			return
 		}
 
+		// 自动设置创建日期
+		loc, _ := time.LoadLocation("Asia/Shanghai")
+		info.CreateDate = time.Now().In(loc).Format("2006-01-02 15:04:05")
+
 		result := c.verifyToken(info, TOKEN_ADD)
 
 		if !result.Success {
@@ -322,6 +345,8 @@ func (c *HandleController) MakeAddTokenFunc() func(context *gin.Context) {
 		info.Ports = cleanPorts(info.Ports)
 		info.Domains = cleanStrings(info.Domains)
 		info.Subdomains = cleanStrings(info.Subdomains)
+		info.Server = cleanString(info.Server) // 清理服务器名称
+		info.ExpireDate = cleanString(info.ExpireDate) // 清理到期时间
 
 		c.Tokens[info.User] = info
 
@@ -355,6 +380,7 @@ func (c *HandleController) MakeUpdateTokensFunc() func(context *gin.Context) {
 			log.Printf(response.Message)
 			context.JSON(http.StatusOK, &response)
 			return
+			// 导入 time 包
 		}
 
 		before := update.Before
@@ -380,6 +406,9 @@ func (c *HandleController) MakeUpdateTokensFunc() func(context *gin.Context) {
 		after.Ports = cleanPorts(after.Ports)
 		after.Domains = cleanStrings(after.Domains)
 		after.Subdomains = cleanStrings(after.Subdomains)
+		after.Server = cleanString(after.Server) // 清理服务器名称
+		after.ExpireDate = cleanString(after.ExpireDate) // 清理到期时间
+		after.CreateDate = before.CreateDate // 创建日期不应改变
 
 		c.Tokens[after.User] = after
 
@@ -538,12 +567,62 @@ func (c *HandleController) MakeEnableTokensFunc() func(context *gin.Context) {
 	}
 }
 
+func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		context.JSON(http.StatusOK, gin.H{
+			"code": 0,
+			"msg":  "success",
+			"data": c.Dashboards,
+			"current_index": c.CurrentDashboardIndex,
+		})
+	}
+}
+
+func (c *HandleController) MakeSwitchDashboardFunc() func(context *gin.Context) {
+	return func(context *gin.Context) {
+		var req struct {
+			Index int `json:"index"`
+		}
+		if err := context.BindJSON(&req); err != nil {
+			context.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid request body",
+			})
+			return
+		}
+
+		if req.Index < 0 || req.Index >= len(c.Dashboards) {
+			context.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid dashboard index",
+			})
+			return
+		}
+
+		c.CurrentDashboardIndex = req.Index
+		context.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Dashboard switched successfully",
+		})
+	}
+}
+
 func (c *HandleController) MakeProxyFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		var client *http.Client
 		var protocol string
 
-		if c.CommonInfo.DashboardTls {
+		if c.CurrentDashboardIndex >= len(c.Dashboards) {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "No dashboard configured or invalid current index",
+			})
+			return
+		}
+
+		currentDashboard := c.Dashboards[c.CurrentDashboardIndex]
+
+		if currentDashboard.DashboardTls {
 			client = &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
@@ -558,15 +637,15 @@ func (c *HandleController) MakeProxyFunc() func(context *gin.Context) {
 		}
 
 		res := ProxyResponse{}
-		host := c.CommonInfo.DashboardAddr
-		port := c.CommonInfo.DashboardPort
+		host := currentDashboard.DashboardAddr
+		port := currentDashboard.DashboardPort
 
 		host, _ = strings.CutPrefix(host, protocol)
 
 		requestUrl := protocol + host + ":" + strconv.Itoa(port) + context.Param("serverApi")
 		request, _ := http.NewRequest("GET", requestUrl, nil)
-		username := c.CommonInfo.DashboardUser
-		password := c.CommonInfo.DashboardPwd
+		username := currentDashboard.DashboardUser
+		password := currentDashboard.DashboardPwd
 		if trimString(username) != "" && trimString(password) != "" {
 			request.SetBasicAuth(username, password)
 			log.Printf("Proxy to %s", requestUrl)

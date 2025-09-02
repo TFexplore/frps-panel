@@ -71,9 +71,9 @@ func Execute() {
 }
 
 func parseConfigFile(configFile, tokensFile string) (controller.HandleController, server.TLS, error) {
-	var common controller.Common
+	var commonCfg controller.Common
 	var tokens controller.Tokens
-	_, err := toml.DecodeFile(configFile, &common)
+	_, err := toml.DecodeFile(configFile, &commonCfg)
 	if err != nil {
 		log.Fatalf("decode config file %v error: %v", configFile, err)
 	}
@@ -87,13 +87,15 @@ func parseConfigFile(configFile, tokensFile string) (controller.HandleController
 		}
 	}
 
-	common.Common.DashboardTls = strings.HasPrefix(strings.ToLower(common.Common.DashboardAddr), "https://")
+	for i := range commonCfg.Dashboards {
+		commonCfg.Dashboards[i].DashboardTls = strings.HasPrefix(strings.ToLower(commonCfg.Dashboards[i].DashboardAddr), "https://")
+	}
 
 	tls := server.TLS{
-		Enable:   common.Common.TlsMode,
+		Enable:   commonCfg.Common.TlsMode,
 		Protocol: "HTTP",
-		Cert:     common.Common.TlsCertFile,
-		Key:      common.Common.TlsKeyFile,
+		Cert:     commonCfg.Common.TlsCertFile,
+		Key:      commonCfg.Common.TlsKeyFile,
 	}
 
 	if tls.Enable {
@@ -107,10 +109,12 @@ func parseConfigFile(configFile, tokensFile string) (controller.HandleController
 	}
 
 	return controller.HandleController{
-		CommonInfo: common.Common,
-		Tokens:     tokens.Tokens,
-		Version:    version,
-		ConfigFile: configFile,
-		TokensFile: tokensFile,
+		CommonInfo:          commonCfg.Common,
+		Tokens:              tokens.Tokens,
+		Version:             version,
+		ConfigFile:          configFile,
+		TokensFile:          tokensFile,
+		Dashboards:          commonCfg.Dashboards,
+		CurrentDashboardIndex: 0, // Default to the first dashboard
 	}, tls, nil
 }

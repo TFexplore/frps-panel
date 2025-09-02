@@ -2,6 +2,9 @@
   "Frps Panel": "Frps 面板",
   "User": "用户名(user)",
   "Token": "凭证(meta_token)",
+  "Server": "服务器",
+  "Create Date": "创建日期",
+  "Expire Date": "到期日期",
   "Notes": "备注",
   "Search": "搜索",
   "Reset": "重置",
@@ -103,5 +106,17 @@
   "Total": "共",
   "Items": "条记录",
   "Go to": "到第",
-  "Per Page": "条/页"
+  "Per Page": "条/页",
+  "Server": "服务器",
+  "Create Date": "创建日期",
+  "Expire Date": "到期日期",
+  "Please input server name": "请输入服务器名称",
+  "PleaseSelectServer": "请选择服务器",
+  "Please select expire date": "请选择到期日期",
+  "All Servers": "所有服务器",
+  "ExpireDateInvalid": "到期日期格式不正确",
+  "EditConfigTemplate": "修改配置模板",
+  "ExportConfig": "导出配置",
+  "ConfigTemplate": "配置模板",
+  "PleaseInputConfigTemplate": "请输入配置模板"
 }

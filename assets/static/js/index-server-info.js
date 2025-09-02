@@ -1,5 +1,5 @@
 var loadServerInfo = (function ($) {
-    var size = filesize.partial({base: 2, standard: "jedec"});
+    var size = filesize.partial({ base: 2, standard: "jedec" });
     var i18n = {};
 
     /**
@@ -63,8 +63,8 @@ var loadServerInfo = (function ($) {
     function renderTrafficChart(data) {
         var chartLegend = [i18n['TrafficIn'], i18n['TrafficOut']];
         var chartData = [
-            {value: data.totalTrafficIn, name: i18n['TrafficIn']},
-            {value: data.totalTrafficOut, name: i18n['TrafficOut']}
+            { value: data.totalTrafficIn, name: i18n['TrafficIn'] },
+            { value: data.totalTrafficOut, name: i18n['TrafficOut'] }
         ];
         var chartDom = document.getElementById('trafficPieChart');
         var chart = echarts.init(chartDom);

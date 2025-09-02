@@ -52,6 +52,7 @@ func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationRe
 		validatePorts      = false
 		validateDomains    = false
 		validateSubdomains = false
+		validateExpireDate = false // 新增验证到期时间
 	)
 
 	if operate == TOKEN_ADD {
@@ -62,6 +63,7 @@ func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationRe
 		validatePorts = true
 		validateDomains = true
 		validateSubdomains = true
+		validateExpireDate = true // 新增验证到期时间
 	} else if operate == TOKEN_UPDATE {
 		validateNotExist = true
 		validateUser = true
@@ -70,6 +72,7 @@ func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationRe
 		validatePorts = true
 		validateDomains = true
 		validateSubdomains = true
+		validateExpireDate = true // 新增验证到期时间
 	} else if operate == TOKEN_ENABLE || operate == TOKEN_DISABLE || operate == TOKEN_REMOVE {
 		validateNotExist = true
 	}
@@ -158,6 +161,16 @@ func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationRe
 				return response
 			}
 		}
+	}
+
+	// 新增到期时间验证
+	trimmedExpireDate := trimString(token.ExpireDate)
+	if validateExpireDate && trimmedExpireDate != "" && !expireDateFormat.MatchString(trimmedExpireDate) {
+		response.Success = false
+		response.Code = ExpireDateFormatError
+		response.Message = fmt.Sprintf("operate failed, expire date [%s] format error", token.ExpireDate)
+		log.Printf(response.Message)
+		return response
 	}
 
 	return response

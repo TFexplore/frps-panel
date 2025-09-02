@@ -7,6 +7,9 @@
         domains = ["web01.domain.com", "web02.domain.com"]
         subdomains = ["web01", "web02"]
         enable = false
+        server = ""
+        create_date = ""
+        expire_date = ""
     [tokens.user2]
         user = "user2"
         token = "token2"
@@ -15,3 +18,17 @@
         domains = ["web11.domain.com", "web12.domain.com"]
         subdomains = ["web11", "web12"]
         enable = false
+        server = ""
+        create_date = ""
+        expire_date = ""
+    [tokens.xx1]
+        user = "xx1"
+        token = "ssxxx"
+        comment = ""
+        ports = [""]
+        domains = [""]
+        subdomains = [""]
+        enable = true
+        server = "Default FRP Server"
+        create_date = "2025-09-01 18:25:11"
+        expire_date = "2025-09-30 00:00:00"

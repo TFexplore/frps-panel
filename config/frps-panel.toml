@@ -14,8 +14,28 @@ tls_mode = false
 #tls_key_file = "cert.key"
 
 # frp dashboard info
-dashboard_addr = "127.0.0.1"
-dashboard_port = 7500
-dashboard_user = "admin"
-dashboard_pwd = "admin"
+# dashboard_addr = "127.0.0.1"
+# dashboard_port = 7500
+# dashboard_user = "admin"
+# dashboard_pwd = "admin"
 
+# Multiple frp dashboards config
+[[dashboards]]
+name = "Default FRP Server"
+dashboard_addr = "154.94.238.70"
+dashboard_port = 7211
+dashboard_user = "admin"
+dashboard_pwd = "token123456"
+
+[[dashboards]]
+name = "Another FRP Server"
+dashboard_addr = "47.104.221.41"
+dashboard_port = 7211
+dashboard_user = "admin"
+dashboard_pwd = "token123456"
+[[dashboards]]
+name = "Another FRP Server2"
+dashboard_addr = "47.104.221.41"
+dashboard_port = 7211
+dashboard_user = "admin"
+dashboard_pwd = "token123456"
