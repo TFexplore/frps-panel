@@ -40,7 +40,7 @@ func (c *HandleController) MakeHandlerFunc() gin.HandlerFunc {
 		if request.Op == "Login" {
 			content := plugin.LoginContent{}
 			err = json.Unmarshal(jsonStr, &content)
-			response = c.HandleLogin(&content)
+			response = c.HandleLogin(&content, context.ClientIP())
 		} else if request.Op == "NewProxy" {
 			content := plugin.NewProxyContent{}
 			err = json.Unmarshal(jsonStr, &content)

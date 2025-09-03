@@ -8,10 +8,34 @@ import (
 	"strings"
 )
 
-func (c *HandleController) HandleLogin(content *plugin.LoginContent) plugin.Response {
+func (c *HandleController) HandleLogin(content *plugin.LoginContent, remoteIP string) plugin.Response {
 	token := content.Metas["token"]
 	user := content.User
-	return c.JudgeToken(user, token)
+	res := c.JudgeToken(user, token)
+	if res.Reject {
+		return res
+	}
+
+	if info, exist := c.Tokens[user]; exist {
+		if info.Server != "" {
+			var serverConf *DashboardConfig
+			for i := range c.Dashboards {
+				if c.Dashboards[i].Name == info.Server {
+					serverConf = &c.Dashboards[i]
+					break
+				}
+			}
+
+			if serverConf == nil {
+				res.Reject = true
+				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, info.Server)
+			} else if serverConf.DashboardAddr != remoteIP {
+				res.Reject = true
+				res.RejectReason = fmt.Sprintf("user [%s] is not allowed to login from this server [%s]", user, remoteIP)
+			}
+		}
+	}
+	return res
 }
 
 func (c *HandleController) HandleNewProxy(content *plugin.NewProxyContent) plugin.Response {
