@@ -2,7 +2,7 @@
 go build -o ./bin/frps-panel ./cmd/frps-panel
 frps-panel.exe -c ./frps-panel.toml 
 windows：
-$env:CGO_ENABLED="0"; $env:GOOS="windows"; $env:GOARCH="amd64"; go build -ldflags "-s -w" -o ./release/frps-panel.exe ./cmd/frps-panel
+$env:CGO_ENABLED="0"; $env:GOOS="windows"; $env:GOARCH="amd64"; go build -ldflags "-s -w" -o ./frps-panel.exe ./cmd/frps-panel
 Linux：
  $env:CGO_ENABLED="0"; $env:GOOS="linux"; $env:GOARCH="amd64"; go build -ldflags "-s -w" -o ./release/frps-panel ./cmd/frps-panel
 

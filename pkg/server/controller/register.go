@@ -14,7 +14,6 @@ type HandleController struct {
 	Version               string
 	ConfigFile            string
 	TokensFile            string
-	Dashboards            []DashboardConfig
 	CurrentDashboardIndex int
 	DB                    *gorm.DB
 	Database              DatabaseConfig

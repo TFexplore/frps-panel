@@ -18,3 +18,14 @@ type UserToken struct {
 	ExpireDate string
 	gorm.Model
 }
+
+// ServerInfo is the GORM model for frps server info
+type ServerInfo struct {
+	Name          string `gorm:"unique"`
+	DashboardAddr string
+	DashboardPort int
+	DashboardUser string
+	DashboardPwd  string
+	DashboardTls  bool
+	gorm.Model
+}

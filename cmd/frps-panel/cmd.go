@@ -81,7 +81,7 @@ var rootCmd = &cobra.Command{
 			log.Println("Database connection successful.")
 
 			// Auto migrate the schema
-			err = db.AutoMigrate(&model.UserToken{})
+			err = db.AutoMigrate(&model.UserToken{}, &model.ServerInfo{})
 			if err != nil {
 				log.Fatalf("failed to auto migrate database schema: %v", err)
 			}
@@ -153,10 +153,6 @@ func parseConfigFile(configFile string) (controller.HandleController, server.TLS
 		log.Fatalf("decode config file %v error: %v", configFile, err)
 	}
 
-	for i := range commonCfg.Dashboards {
-		commonCfg.Dashboards[i].DashboardTls = strings.HasPrefix(strings.ToLower(commonCfg.Dashboards[i].DashboardAddr), "https://")
-	}
-
 	tls := server.TLS{
 		Enable:   commonCfg.Common.TlsMode,
 		Protocol: "HTTP",
@@ -178,7 +174,6 @@ func parseConfigFile(configFile string) (controller.HandleController, server.TLS
 		CommonInfo:            commonCfg.Common,
 		Version:               version,
 		ConfigFile:            configFile,
-		Dashboards:            commonCfg.Dashboards,
 		CurrentDashboardIndex: 0, // Default to the first dashboard
 		Database:              commonCfg.Database,
 	}, tls, nil

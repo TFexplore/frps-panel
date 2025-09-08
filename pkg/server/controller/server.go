@@ -113,6 +113,12 @@ func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) 
 		session := sessions.Default(context)
 		userRole := session.Get(UserRoleName)
 
+		var servers []ServerInfo
+		if result := c.DB.Find(&servers); result.Error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to query servers"})
+			return
+		}
+
 		// For normal users, only return non-sensitive dashboard information
 		if userRole == UserRoleNormal {
 			type UserDashboardInfo struct {
@@ -120,10 +126,10 @@ func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) 
 				DashboardAddr string `json:"dashboard_addr"`
 			}
 			var userDashboards []UserDashboardInfo
-			for _, dashboard := range c.Dashboards {
+			for _, server := range servers {
 				userDashboards = append(userDashboards, UserDashboardInfo{
-					Name:          dashboard.Name,
-					DashboardAddr: dashboard.DashboardAddr,
+					Name:          server.Name,
+					DashboardAddr: server.DashboardAddr,
 				})
 			}
 			context.JSON(http.StatusOK, gin.H{
@@ -139,7 +145,7 @@ func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) 
 		context.JSON(http.StatusOK, gin.H{
 			"code":          0,
 			"msg":           "success",
-			"data":          c.Dashboards,
+			"data":          servers,
 			"current_index": c.CurrentDashboardIndex,
 		})
 	}
@@ -159,7 +165,10 @@ func (c *HandleController) MakeSwitchDashboardFunc() func(context *gin.Context) 
 			return
 		}
 
-		if req.Index < 0 || req.Index >= len(c.Dashboards) {
+		var count int64
+		c.DB.Model(&ServerInfo{}).Count(&count)
+
+		if req.Index < 0 || req.Index >= int(count) {
 			context.JSON(http.StatusBadRequest, gin.H{
 				"success": false,
 				"message": "Invalid dashboard index",
@@ -236,7 +245,13 @@ func (c *HandleController) MakeProxyFunc() func(context *gin.Context) {
 		var client *http.Client
 		var protocol string
 
-		if c.CurrentDashboardIndex >= len(c.Dashboards) {
+		var servers []ServerInfo
+		if result := c.DB.Find(&servers); result.Error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to query servers"})
+			return
+		}
+
+		if c.CurrentDashboardIndex >= len(servers) {
 			context.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"message": "No dashboard configured or invalid current index",
@@ -244,7 +259,7 @@ func (c *HandleController) MakeProxyFunc() func(context *gin.Context) {
 			return
 		}
 
-		currentDashboard := c.Dashboards[c.CurrentDashboardIndex]
+		currentDashboard := servers[c.CurrentDashboardIndex]
 
 		if currentDashboard.DashboardTls {
 			client = &http.Client{

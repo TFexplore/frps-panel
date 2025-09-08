@@ -3,11 +3,13 @@ package controller
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
+	"frps-panel/pkg/server/model"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 )
 
 func (c *HandleController) BasicAuth() gin.HandlerFunc {
@@ -75,20 +77,46 @@ func (c *HandleController) LoginAuth(username, password string, context *gin.Con
 	}
 
 	// 2. 尝试普通用户登录
-	for _, tokenInfo := range c.Tokens {
-		if tokenInfo.Enable && tokenInfo.User == username && tokenInfo.Token == password {
-			// 检查用户是否过期
-			if tokenInfo.ExpireDate != "" {
-				expireTime, err := time.Parse("2006-01-02 15:04:05", tokenInfo.ExpireDate)
-				if err == nil && time.Now().After(expireTime) {
-					return false // 用户已过期
+	if c.DB != nil {
+		var user model.UserToken
+		// Trim space from username before querying the database
+		trimmedUser := strings.TrimSpace(username)
+		// Use Unscoped to bypass the soft delete check for debugging
+		result := c.DB.Where("user = ?", trimmedUser).First(&user)
+		if result.Error == nil {
+			// 找到了用户，现在验证密码和其他条件
+			if user.Enable && user.Token == password {
+				// 检查用户是否过期
+				if user.ExpireDate != "" {
+					expireTime, err := time.Parse("2006-01-02 15:04:05", user.ExpireDate)
+					if err == nil && time.Now().After(expireTime) {
+						return false // 用户已过期
+					}
 				}
+				session.Set(AuthName, encodeBasicAuth(trimmedUser, password)) // 存储用户凭证
+				session.Set(UserRoleName, UserRoleNormal)
+				session.Set("current_user", trimmedUser) // 存储当前登录的普通用户
+				_ = session.Save()
+				return true
 			}
-			session.Set(AuthName, encodeBasicAuth(username, password)) // 存储用户凭证
-			session.Set(UserRoleName, UserRoleNormal)
-			session.Set("current_user", username) // 存储当前登录的普通用户
-			_ = session.Save()
-			return true
+		}
+	} else {
+		// Fallback to original logic if DB is not available
+		for _, tokenInfo := range c.Tokens {
+			if tokenInfo.Enable && tokenInfo.User == username && tokenInfo.Token == password {
+				// 检查用户是否过期
+				if tokenInfo.ExpireDate != "" {
+					expireTime, err := time.Parse("2006-01-02 15:04:05", tokenInfo.ExpireDate)
+					if err == nil && time.Now().After(expireTime) {
+						return false // 用户已过期
+					}
+				}
+				session.Set(AuthName, encodeBasicAuth(username, password)) // 存储用户凭证
+				session.Set(UserRoleName, UserRoleNormal)
+				session.Set("current_user", username) // 存储当前登录的普通用户
+				_ = session.Save()
+				return true
+			}
 		}
 	}
 

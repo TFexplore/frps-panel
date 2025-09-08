@@ -72,9 +72,8 @@ type DatabaseConfig struct {
 }
 
 type Common struct {
-	Common     CommonInfo        `toml:"common"`
-	Database   DatabaseConfig    `toml:"database"`
-	Dashboards []DashboardConfig `toml:"dashboards"`
+	Common   CommonInfo     `toml:"common"`
+	Database DatabaseConfig `toml:"database"`
 }
 
 type CommonInfo struct {
@@ -88,7 +87,7 @@ type CommonInfo struct {
 	TlsKeyFile    string `toml:"tls_key_file"`
 }
 
-type DashboardConfig struct {
+type ServerInfo struct {
 	Name          string `toml:"name" json:"name"`
 	DashboardAddr string `toml:"dashboard_addr" json:"dashboard_addr"`
 	DashboardPort int    `toml:"dashboard_port" json:"dashboard_port"`

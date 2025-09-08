@@ -2,10 +2,11 @@ package controller
 
 import (
 	"fmt"
-	plugin "github.com/fatedier/frp/pkg/plugin/server"
 	"log"
 	"strconv"
 	"strings"
+
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
 )
 
 func (c *HandleController) HandleLogin(content *plugin.LoginContent, remoteIP string) plugin.Response {
@@ -18,15 +19,14 @@ func (c *HandleController) HandleLogin(content *plugin.LoginContent, remoteIP st
 
 	if info, exist := c.Tokens[user]; exist {
 		if info.Server != "" {
-			var serverConf *DashboardConfig
-			for i := range c.Dashboards {
-				if c.Dashboards[i].Name == info.Server {
-					serverConf = &c.Dashboards[i]
-					break
-				}
+			var serverConf ServerInfo
+			if result := c.DB.Where("name = ?", info.Server).First(&serverConf); result.Error != nil {
+				res.Reject = true
+				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, info.Server)
+				return res
 			}
 
-			if serverConf == nil {
+			if serverConf.Name == "" {
 				res.Reject = true
 				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, info.Server)
 			} else if serverConf.DashboardAddr != remoteIP {

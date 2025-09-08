@@ -75,7 +75,13 @@ func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context)
 		var client *http.Client
 		var protocol string
 
-		if c.CurrentDashboardIndex >= len(c.Dashboards) {
+		var servers []ServerInfo
+		if result := c.DB.Find(&servers); result.Error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to query servers"})
+			return
+		}
+
+		if c.CurrentDashboardIndex >= len(servers) {
 			context.JSON(http.StatusInternalServerError, gin.H{
 				"success": false,
 				"message": "No dashboard configured or invalid current index",
@@ -83,7 +89,7 @@ func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context)
 			return
 		}
 
-		currentDashboard := c.Dashboards[c.CurrentDashboardIndex]
+		currentDashboard := servers[c.CurrentDashboardIndex]
 
 		if currentDashboard.DashboardTls {
 			client = &http.Client{
@@ -390,7 +396,18 @@ func (c *HandleController) MakeUpdateTokensFunc() func(context *gin.Context) {
 				context.JSON(http.StatusOK, &response)
 				return
 			}
-			result := c.DB.Save(&userToken)
+			// Using a map to ensure all fields, including zero-value fields (like false for bools), are updated correctly.
+			updateData := map[string]interface{}{
+				"token":       userToken.Token,
+				"comment":     userToken.Comment,
+				"ports":       userToken.Ports,
+				"domains":     userToken.Domains,
+				"subdomains":  userToken.Subdomains,
+				"enable":      userToken.Enable,
+				"server":      userToken.Server,
+				"expire_date": userToken.ExpireDate,
+			}
+			result := c.DB.Model(&model.UserToken{}).Where("user = ?", userToken.User).Updates(updateData)
 			if result.Error != nil {
 				response.Success = false
 				response.Code = SaveError
