@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"frps-panel/pkg/server/model"
 	"log"
 	"strconv"
 	"strings"
@@ -17,18 +18,19 @@ func (c *HandleController) HandleLogin(content *plugin.LoginContent, remoteIP st
 		return res
 	}
 
-	if info, exist := c.Tokens[user]; exist {
-		if info.Server != "" {
-			var serverConf ServerInfo
-			if result := c.DB.Where("name = ?", info.Server).First(&serverConf); result.Error != nil {
+	var userToken model.UserToken
+	if result := c.DB.Where("user = ?", user).First(&userToken); result.Error == nil {
+		if userToken.Server != "" {
+			var serverConf model.ServerInfo
+			if result := c.DB.Where("name = ?", userToken.Server).First(&serverConf); result.Error != nil {
 				res.Reject = true
-				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, info.Server)
+				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, userToken.Server)
 				return res
 			}
 
 			if serverConf.Name == "" {
 				res.Reject = true
-				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, info.Server)
+				res.RejectReason = fmt.Sprintf("user [%s] is configured for server [%s], but this server is not defined", user, userToken.Server)
 			} else if serverConf.DashboardAddr != remoteIP {
 				res.Reject = true
 				res.RejectReason = fmt.Sprintf("user [%s] is not allowed to login from this server [%s]", user, remoteIP)
@@ -68,26 +70,27 @@ func (c *HandleController) HandleNewUserConn(content *plugin.NewUserConnContent)
 
 func (c *HandleController) JudgeToken(user string, token string) plugin.Response {
 	var res plugin.Response
-	if len(c.Tokens) == 0 {
-		res.Unchange = true
-	} else if user == "" || token == "" {
+	if user == "" || token == "" {
 		res.Reject = true
 		res.RejectReason = "user or meta token can not be empty"
-	} else if info, exist := c.Tokens[user]; exist {
-		if !info.Enable {
-			res.Reject = true
-			res.RejectReason = fmt.Sprintf("user [%s] is disabled", user)
-		} else {
-			if info.Token != token {
-				res.Reject = true
-				res.RejectReason = fmt.Sprintf("invalid meta token for user [%s]", user)
-			} else {
-				res.Unchange = true
-			}
-		}
-	} else {
+		return res
+	}
+
+	var userToken model.UserToken
+	if result := c.DB.Where("user = ?", user).First(&userToken); result.Error != nil {
 		res.Reject = true
 		res.RejectReason = fmt.Sprintf("user [%s] not exist", user)
+		return res
+	}
+
+	if !userToken.Enable {
+		res.Reject = true
+		res.RejectReason = fmt.Sprintf("user [%s] is disabled", user)
+	} else if userToken.Token != token {
+		res.Reject = true
+		res.RejectReason = fmt.Sprintf("invalid meta token for user [%s]", user)
+	} else {
+		res.Unchange = true
 	}
 
 	return res
@@ -115,51 +118,56 @@ func (c *HandleController) JudgePort(content *plugin.NewProxyContent) plugin.Res
 	portAllowed := true
 	if proxyType == "tcp" || proxyType == "udp" {
 		portAllowed = false
-		if token, exist := c.Tokens[user]; exist {
-			for _, port := range token.Ports {
-				if str, ok := port.(string); ok {
-					if strings.Contains(str, "-") {
-						allowedRanges := strings.Split(str, "-")
-						if len(allowedRanges) != 2 {
-							portErr = fmt.Errorf("user [%v] port range [%v] format error", user, port)
-							break
-						}
-						start, err := strconv.Atoi(trimString(allowedRanges[0]))
-						if err != nil {
-							portErr = fmt.Errorf("user [%v] port rang [%v] start port [%v] is not a number", user, port, allowedRanges[0])
-							break
-						}
-						end, err := strconv.Atoi(trimString(allowedRanges[1]))
-						if err != nil {
-							portErr = fmt.Errorf("user [%v] port rang [%v] end port [%v] is not a number", user, port, allowedRanges[0])
-							break
-						}
-						if max(userPort, start) == userPort && min(userPort, end) == userPort {
-							portAllowed = true
-							break
+		var userToken model.UserToken
+		if result := c.DB.Where("user = ?", user).First(&userToken); result.Error == nil {
+			info, err := ToUserTokenInfo(userToken)
+			if err != nil {
+				portErr = fmt.Errorf("failed to convert user token: %v", err)
+			} else {
+				for _, port := range info.Ports {
+					if str, ok := port.(string); ok {
+						if strings.Contains(str, "-") {
+							allowedRanges := strings.Split(str, "-")
+							if len(allowedRanges) != 2 {
+								portErr = fmt.Errorf("user [%v] port range [%v] format error", user, port)
+								break
+							}
+							start, err := strconv.Atoi(trimString(allowedRanges[0]))
+							if err != nil {
+								portErr = fmt.Errorf("user [%v] port rang [%v] start port [%v] is not a number", user, port, allowedRanges[0])
+								break
+							}
+							end, err := strconv.Atoi(trimString(allowedRanges[1]))
+							if err != nil {
+								portErr = fmt.Errorf("user [%v] port rang [%v] end port [%v] is not a number", user, port, allowedRanges[0])
+								break
+							}
+							if max(userPort, start) == userPort && min(userPort, end) == userPort {
+								portAllowed = true
+								break
+							}
+						} else {
+							if str == "" {
+								portAllowed = true
+								break
+							}
+							allowed, err := strconv.Atoi(str)
+							if err != nil {
+								portErr = fmt.Errorf("user [%v] allowed port [%v] is not a number", user, port)
+							}
+							if allowed == userPort {
+								portAllowed = true
+								break
+							}
 						}
 					} else {
-						if str == "" {
-							portAllowed = true
-							break
-						}
-						allowed, err := strconv.Atoi(str)
-						if err != nil {
-							portErr = fmt.Errorf("user [%v] allowed port [%v] is not a number", user, port)
-						}
+						allowed := port
 						if allowed == userPort {
 							portAllowed = true
 							break
 						}
 					}
-				} else {
-					allowed := port
-					if allowed == userPort {
-						portAllowed = true
-						break
-					}
 				}
-
 			}
 		} else {
 			portAllowed = true
@@ -175,14 +183,20 @@ func (c *HandleController) JudgePort(content *plugin.NewProxyContent) plugin.Res
 	domainAllowed := true
 	if proxyType == "http" || proxyType == "https" || proxyType == "tcpmux" {
 		if portAllowed {
-			if token, exist := c.Tokens[user]; exist {
-				if stringContains("", token.Domains) {
-					domainAllowed = true
+			var userToken model.UserToken
+			if result := c.DB.Where("user = ?", user).First(&userToken); result.Error == nil {
+				info, err := ToUserTokenInfo(userToken)
+				if err != nil {
+					portErr = fmt.Errorf("failed to convert user token: %v", err)
 				} else {
-					for _, userDomain := range userDomains {
-						if !stringContains(userDomain, token.Domains) {
-							domainAllowed = false
-							break
+					if stringContains("", info.Domains) {
+						domainAllowed = true
+					} else {
+						for _, userDomain := range userDomains {
+							if !stringContains(userDomain, info.Domains) {
+								domainAllowed = false
+								break
+							}
 						}
 					}
 				}
@@ -198,14 +212,20 @@ func (c *HandleController) JudgePort(content *plugin.NewProxyContent) plugin.Res
 	if proxyType == "http" || proxyType == "https" {
 		subdomainAllowed = false
 		if portAllowed && domainAllowed {
-			if token, exist := c.Tokens[user]; exist {
-				if stringContains("", token.Subdomains) {
-					subdomainAllowed = true
+			var userToken model.UserToken
+			if result := c.DB.Where("user = ?", user).First(&userToken); result.Error == nil {
+				info, err := ToUserTokenInfo(userToken)
+				if err != nil {
+					portErr = fmt.Errorf("failed to convert user token: %v", err)
 				} else {
-					for _, subdomain := range token.Subdomains {
-						if subdomain == userSubdomain {
-							subdomainAllowed = true
-							break
+					if stringContains("", info.Subdomains) {
+						subdomainAllowed = true
+					} else {
+						for _, subdomain := range info.Subdomains {
+							if subdomain == userSubdomain {
+								subdomainAllowed = true
+								break
+							}
 						}
 					}
 				}

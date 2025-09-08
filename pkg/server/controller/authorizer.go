@@ -100,24 +100,6 @@ func (c *HandleController) LoginAuth(username, password string, context *gin.Con
 				return true
 			}
 		}
-	} else {
-		// Fallback to original logic if DB is not available
-		for _, tokenInfo := range c.Tokens {
-			if tokenInfo.Enable && tokenInfo.User == username && tokenInfo.Token == password {
-				// 检查用户是否过期
-				if tokenInfo.ExpireDate != "" {
-					expireTime, err := time.Parse("2006-01-02 15:04:05", tokenInfo.ExpireDate)
-					if err == nil && time.Now().After(expireTime) {
-						return false // 用户已过期
-					}
-				}
-				session.Set(AuthName, encodeBasicAuth(username, password)) // 存储用户凭证
-				session.Set(UserRoleName, UserRoleNormal)
-				session.Set("current_user", username) // 存储当前登录的普通用户
-				_ = session.Save()
-				return true
-			}
-		}
 	}
 
 	// 登录失败，清除会话

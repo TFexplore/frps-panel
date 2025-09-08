@@ -10,7 +10,6 @@ import (
 
 type HandleController struct {
 	CommonInfo            CommonInfo
-	Tokens                map[string]TokenInfo
 	Version               string
 	ConfigFile            string
 	TokensFile            string

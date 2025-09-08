@@ -1,14 +1,13 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"frps-panel/pkg/server/model"
 	"log"
 	"strings"
 )
 
-func filter(main TokenInfo, sub TokenInfo) bool {
+func filter(main UserTokenInfo, sub UserTokenInfo) bool {
 	replaceSpaceUser := trimAllSpace.ReplaceAllString(sub.User, "")
 	if len(replaceSpaceUser) != 0 {
 		if !strings.Contains(main.User, replaceSpaceUser) {
@@ -36,7 +35,7 @@ func trimString(str string) string {
 	return strings.TrimSpace(str)
 }
 
-func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationResponse {
+func (c *HandleController) verifyToken(token UserTokenInfo, operate int) OperationResponse {
 	response := OperationResponse{
 		Success: true,
 		Code:    Success,
@@ -86,7 +85,9 @@ func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationRe
 	}
 
 	if validateExist {
-		if _, exist := c.Tokens[token.User]; exist {
+		var count int64
+		c.DB.Model(&model.UserToken{}).Where("user = ?", token.User).Count(&count)
+		if count > 0 {
 			response.Success = false
 			response.Code = UserExist
 			response.Message = fmt.Sprintf("operate failed, user [%s] exist ", token.User)
@@ -96,7 +97,9 @@ func (c *HandleController) verifyToken(token TokenInfo, operate int) OperationRe
 	}
 
 	if validateNotExist {
-		if _, exist := c.Tokens[token.User]; !exist {
+		var count int64
+		c.DB.Model(&model.UserToken{}).Where("user = ?", token.User).Count(&count)
+		if count == 0 {
 			response.Success = false
 			response.Code = UserNotExist
 			response.Message = fmt.Sprintf("operate failed, user [%s] not exist ", token.User)
@@ -208,72 +211,4 @@ func stringContains(element string, data []string) bool {
 		}
 	}
 	return false
-}
-
-func tokensList(tokens map[string]TokenInfo) Tokens {
-	return Tokens{
-		tokens,
-	}
-}
-
-// ToTokenInfo converts a model.UserToken (DB model) to a TokenInfo (controller model).
-func ToTokenInfo(ut model.UserToken) (TokenInfo, error) {
-	var ports []any
-	if err := json.Unmarshal([]byte(ut.Ports), &ports); err != nil {
-		return TokenInfo{}, err
-	}
-
-	var domains []string
-	if err := json.Unmarshal([]byte(ut.Domains), &domains); err != nil {
-		return TokenInfo{}, err
-	}
-
-	var subdomains []string
-	if err := json.Unmarshal([]byte(ut.Subdomains), &subdomains); err != nil {
-		return TokenInfo{}, err
-	}
-
-	return TokenInfo{
-		User:       ut.User,
-		Token:      ut.Token,
-		Comment:    ut.Comment,
-		Ports:      ports,
-		Domains:    domains,
-		Subdomains: subdomains,
-		Enable:     ut.Enable,
-		Server:     ut.Server,
-		CreateDate: ut.CreateDate,
-		ExpireDate: ut.ExpireDate,
-	}, nil
-}
-
-// FromTokenInfo converts a TokenInfo (controller model) to a model.UserToken (DB model).
-func FromTokenInfo(ti TokenInfo) (model.UserToken, error) {
-	portsJSON, err := json.Marshal(ti.Ports)
-	if err != nil {
-		return model.UserToken{}, err
-	}
-
-	domainsJSON, err := json.Marshal(ti.Domains)
-	if err != nil {
-		return model.UserToken{}, err
-	}
-
-	subdomainsJSON, err := json.Marshal(ti.Subdomains)
-	if err != nil {
-		return model.UserToken{}, err
-	}
-
-	return model.UserToken{
-		User:       ti.User,
-		Token:      ti.Token,
-		Comment:    ti.Comment,
-		Ports:      string(portsJSON),
-		Domains:    string(domainsJSON),
-		Subdomains: string(subdomainsJSON),
-		Enable:     ti.Enable,
-		Server:     ti.Server,
-		CreateDate: ti.CreateDate,
-		ExpireDate: ti.ExpireDate,
-	}, nil
 }

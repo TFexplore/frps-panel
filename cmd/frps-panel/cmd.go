@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"frps-panel/pkg/server"
 	"frps-panel/pkg/server/controller"
@@ -87,41 +86,9 @@ var rootCmd = &cobra.Command{
 			}
 			log.Println("Database schema migrated.")
 
-			// Load tokens from database
-			var userTokens []model.UserToken
-			result := db.Find(&userTokens)
-			if result.Error != nil {
-				log.Fatalf("failed to load tokens from database: %v", result.Error)
-			}
-
-			config.Tokens = make(map[string]controller.TokenInfo)
-			for _, ut := range userTokens {
-				ti, err := controller.ToTokenInfo(ut)
-				if err != nil {
-					log.Printf("error converting user token %s to token info: %v", ut.User, err)
-					continue
-				}
-				config.Tokens[ti.User] = ti
-			}
-			log.Printf("Loaded %d tokens from database.", len(config.Tokens))
-
+			log.Println("Database initialization complete.")
 		} else {
-			log.Println("Database is disabled, using token file.")
-			configDir := filepath.Dir(configFile)
-			tokensFile := filepath.Join(configDir, "frps-tokens.toml")
-			config.TokensFile = tokensFile
-
-			var tokens controller.Tokens
-			_, err = toml.DecodeFile(tokensFile, &tokens)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					tokens = controller.Tokens{Tokens: make(map[string]controller.TokenInfo)}
-				} else {
-					log.Fatalf("decode token file %v error: %v", tokensFile, err)
-				}
-			}
-			config.Tokens = tokens.Tokens
-			log.Printf("Loaded %d tokens from file.", len(config.Tokens))
+			log.Println("Database is disabled. Please enable it in the config file.")
 		}
 
 		s, err := server.New(

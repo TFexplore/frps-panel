@@ -28,18 +28,29 @@ func (c *HandleController) MakeQueryUserInfoFunc() func(context *gin.Context) {
 				Code:  ParamError,
 				Msg:   "User not logged in",
 				Count: 0,
-				Data:  []TokenInfo{},
+				Data:  []UserTokenInfo{},
 			})
 			return
 		}
 
-		tokenInfo, ok := c.Tokens[currentUser]
-		if !ok {
+		var userToken model.UserToken
+		if result := c.DB.Where("user = ?", currentUser).First(&userToken); result.Error != nil {
 			context.JSON(http.StatusNotFound, &TokenResponse{
 				Code:  UserNotExist,
 				Msg:   "User info not found",
 				Count: 0,
-				Data:  []TokenInfo{},
+				Data:  []UserTokenInfo{},
+			})
+			return
+		}
+
+		tokenInfo, err := ToUserTokenInfo(userToken)
+		if err != nil {
+			context.JSON(http.StatusInternalServerError, &TokenResponse{
+				Code:  SaveError,
+				Msg:   "Failed to convert user token",
+				Count: 0,
+				Data:  []UserTokenInfo{},
 			})
 			return
 		}
@@ -48,7 +59,7 @@ func (c *HandleController) MakeQueryUserInfoFunc() func(context *gin.Context) {
 			Code:  0,
 			Msg:   "query user info success",
 			Count: 1,
-			Data:  []TokenInfo{tokenInfo},
+			Data:  []UserTokenInfo{tokenInfo},
 		})
 	}
 }
@@ -225,37 +236,48 @@ func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 			return
 		}
 
-		var tokenList []TokenInfo
-		for _, tokenInfo := range c.Tokens {
-			// 如果是普通用户，只显示自己的信息
-			if userRole == UserRoleNormal && tokenInfo.User != currentUser {
+		var userTokens []model.UserToken
+		query := c.DB.Model(&model.UserToken{})
+
+		if userRole == UserRoleNormal {
+			query = query.Where("user = ?", currentUser)
+		}
+
+		if search.Server != "" {
+			query = query.Where("server = ?", search.Server)
+		}
+		if search.User != "" {
+			query = query.Where("user LIKE ?", "%"+search.User+"%")
+		}
+
+		if err := query.Find(&userTokens).Error; err != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to query tokens"})
+			return
+		}
+
+		var tokenList []UserTokenInfo
+		for _, ut := range userTokens {
+			info, err := ToUserTokenInfo(ut)
+			if err != nil {
+				log.Printf("Failed to convert user token: %v", err)
 				continue
 			}
-			tokenList = append(tokenList, tokenInfo)
+			tokenList = append(tokenList, info)
 		}
+
 		sort.Slice(tokenList, func(i, j int) bool {
 			return strings.Compare(tokenList[i].User, tokenList[j].User) < 0
 		})
 
-		var filtered []TokenInfo
+		var filtered []UserTokenInfo
 		for _, tokenInfo := range tokenList {
-			// 添加服务器名称过滤
-			if search.Server != "" && tokenInfo.Server != search.Server {
-				continue
-			}
-			// 如果是普通用户，强制过滤为当前用户
-			if userRole == UserRoleNormal {
-				if tokenInfo.User == currentUser && filter(tokenInfo, search.TokenInfo) {
-					filtered = append(filtered, tokenInfo)
-				}
-			} else { // 管理员用户
-				if filter(tokenInfo, search.TokenInfo) {
-					filtered = append(filtered, tokenInfo)
-				}
+			if filter(tokenInfo, search.UserTokenInfo) {
+				filtered = append(filtered, tokenInfo)
 			}
 		}
+
 		if filtered == nil {
-			filtered = []TokenInfo{}
+			filtered = []UserTokenInfo{}
 		}
 
 		count := len(filtered)
@@ -275,7 +297,7 @@ func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 
 func (c *HandleController) MakeAddTokenFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
-		info := TokenInfo{
+		info := UserTokenInfo{
 			Enable: true,
 		}
 		response := OperationResponse{
@@ -313,7 +335,7 @@ func (c *HandleController) MakeAddTokenFunc() func(context *gin.Context) {
 
 		// Save to database or file
 		if c.DB != nil {
-			userToken, err := FromTokenInfo(info)
+			userToken, err := FromUserTokenInfo(info)
 			if err != nil {
 				response.Success = false
 				response.Code = SaveError
@@ -332,8 +354,6 @@ func (c *HandleController) MakeAddTokenFunc() func(context *gin.Context) {
 				return
 			}
 		}
-
-		c.Tokens[info.User] = info
 
 		context.JSON(0, &response)
 	}
@@ -387,7 +407,7 @@ func (c *HandleController) MakeUpdateTokensFunc() func(context *gin.Context) {
 
 		// Save to database or file
 		if c.DB != nil {
-			userToken, err := FromTokenInfo(after)
+			userToken, err := FromUserTokenInfo(after)
 			if err != nil {
 				response.Success = false
 				response.Code = SaveError
@@ -417,7 +437,6 @@ func (c *HandleController) MakeUpdateTokensFunc() func(context *gin.Context) {
 				return
 			}
 		}
-		c.Tokens[after.User] = after
 
 		context.JSON(http.StatusOK, &response)
 	}
@@ -462,7 +481,6 @@ func (c *HandleController) MakeRemoveTokensFunc() func(context *gin.Context) {
 					return
 				}
 			}
-			delete(c.Tokens, user.User)
 		}
 
 		if c.DB == nil {
@@ -500,8 +518,6 @@ func (c *HandleController) MakeDisableTokensFunc() func(context *gin.Context) {
 		}
 
 		for _, user := range disable.Users {
-			token := c.Tokens[user.User]
-			token.Enable = false
 			if c.DB != nil {
 				result := c.DB.Model(&model.UserToken{}).Where("user = ?", user.User).Update("enable", false)
 				if result.Error != nil {
@@ -513,7 +529,6 @@ func (c *HandleController) MakeDisableTokensFunc() func(context *gin.Context) {
 					return
 				}
 			}
-			c.Tokens[user.User] = token
 		}
 
 		if c.DB == nil {
@@ -551,8 +566,6 @@ func (c *HandleController) MakeEnableTokensFunc() func(context *gin.Context) {
 		}
 
 		for _, user := range enable.Users {
-			token := c.Tokens[user.User]
-			token.Enable = true
 			if c.DB != nil {
 				result := c.DB.Model(&model.UserToken{}).Where("user = ?", user.User).Update("enable", true)
 				if result.Error != nil {
@@ -564,7 +577,6 @@ func (c *HandleController) MakeEnableTokensFunc() func(context *gin.Context) {
 					return
 				}
 			}
-			c.Tokens[user.User] = token
 		}
 
 		if c.DB == nil {

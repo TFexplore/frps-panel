@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"frps-panel/pkg/server/model"
 	"io"
 	"log"
 	"net/http"
@@ -28,29 +29,43 @@ func (c *HandleController) MakeGetMaxPortFunc() func(context *gin.Context) {
 			return
 		}
 
+		var userTokens []model.UserToken
+		if result := c.DB.Where("server = ?", serverName).Find(&userTokens); result.Error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Failed to query tokens",
+			})
+			return
+		}
+
 		maxPort := 0
-		for _, tokenInfo := range c.Tokens {
-			if tokenInfo.Server == serverName {
-				for _, p := range tokenInfo.Ports {
-					switch v := p.(type) {
-					case int:
-						if v > maxPort {
-							maxPort = v
+		for _, userToken := range userTokens {
+			tokenInfo, err := ToUserTokenInfo(userToken)
+			if err != nil {
+				log.Printf("Failed to convert user token: %v", err)
+				continue
+			}
+			for _, p := range tokenInfo.Ports {
+				switch v := p.(type) {
+				case int:
+					if v > maxPort {
+						maxPort = v
+					}
+				case float64:
+					if int(v) > maxPort {
+						maxPort = int(v)
+					}
+				case string:
+					parts := strings.Split(v, "-")
+					if len(parts) == 2 {
+						endPort, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+						if err == nil && endPort > maxPort {
+							maxPort = endPort
 						}
-					case string:
-						// 处理 "10000-10200" 格式的端口范围
-						parts := strings.Split(v, "-")
-						if len(parts) == 2 {
-							endPort, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-							if err == nil && endPort > maxPort {
-								maxPort = endPort
-							}
-						} else {
-							// 如果是单个端口号的字符串形式，例如 "8080"
-							singlePort, err := strconv.Atoi(strings.TrimSpace(v))
-							if err == nil && singlePort > maxPort {
-								maxPort = singlePort
-							}
+					} else {
+						singlePort, err := strconv.Atoi(strings.TrimSpace(v))
+						if err == nil && singlePort > maxPort {
+							maxPort = singlePort
 						}
 					}
 				}
@@ -68,9 +83,22 @@ func (c *HandleController) MakeGetMaxPortFunc() func(context *gin.Context) {
 // 后台获取最大端口列表
 func (c *HandleController) MakeGetAllMaxPortsFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
-		maxPortsMap := make(map[string]int)
+		var userTokens []model.UserToken
+		if result := c.DB.Find(&userTokens); result.Error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"message": "Failed to query tokens",
+			})
+			return
+		}
 
-		for _, tokenInfo := range c.Tokens {
+		maxPortsMap := make(map[string]int)
+		for _, userToken := range userTokens {
+			tokenInfo, err := ToUserTokenInfo(userToken)
+			if err != nil {
+				log.Printf("Failed to convert user token: %v", err)
+				continue
+			}
 			serverName := tokenInfo.Server
 			if _, ok := maxPortsMap[serverName]; !ok {
 				maxPortsMap[serverName] = 0
@@ -81,6 +109,10 @@ func (c *HandleController) MakeGetAllMaxPortsFunc() func(context *gin.Context) {
 				case int:
 					if v > maxPortsMap[serverName] {
 						maxPortsMap[serverName] = v
+					}
+				case float64:
+					if int(v) > maxPortsMap[serverName] {
+						maxPortsMap[serverName] = int(v)
 					}
 				case string:
 					parts := strings.Split(v, "-")

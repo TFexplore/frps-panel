@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"encoding/json"
+	"frps-panel/pkg/server/model"
 	"regexp"
 )
 
@@ -96,28 +98,24 @@ type ServerInfo struct {
 	DashboardTls  bool   `json:"dashboard_tls"`
 }
 
-type Tokens struct {
-	Tokens map[string]TokenInfo `toml:"tokens"`
-}
-
-type TokenInfo struct {
-	User       string   `toml:"user" json:"user" form:"user"`
-	Token      string   `toml:"token" json:"token" form:"token"`
-	Comment    string   `toml:"comment" json:"comment" form:"comment"`
-	Ports      []any    `toml:"ports" json:"ports" from:"ports"`
-	Domains    []string `toml:"domains" json:"domains" from:"domains"`
-	Subdomains []string `toml:"subdomains" json:"subdomains" from:"subdomains"`
-	Enable     bool     `toml:"enable" json:"enable" form:"enable"`
-	Server     string   `toml:"server" json:"server" form:"server"`                // 新增服务器名称
-	CreateDate string   `toml:"create_date" json:"create_date" form:"create_date"` // 新增创建日期
-	ExpireDate string   `toml:"expire_date" json:"expire_date" form:"expire_date"` // 新增到期时间
+type UserTokenInfo struct {
+	User       string   `json:"user" form:"user"`
+	Token      string   `json:"token" form:"token"`
+	Comment    string   `json:"comment" form:"comment"`
+	Ports      []any    `json:"ports" form:"ports"`
+	Domains    []string `json:"domains" form:"domains"`
+	Subdomains []string `json:"subdomains" form:"subdomains"`
+	Enable     bool     `json:"enable" form:"enable"`
+	Server     string   `json:"server" form:"server"`
+	CreateDate string   `json:"create_date" form:"create_date"`
+	ExpireDate string   `json:"expire_date" form:"expire_date"`
 }
 
 type TokenResponse struct {
-	Code  int         `json:"code"`
-	Msg   string      `json:"msg"`
-	Count int         `json:"count"`
-	Data  []TokenInfo `json:"data"`
+	Code  int             `json:"code"`
+	Msg   string          `json:"msg"`
+	Count int             `json:"count"`
+	Data  []UserTokenInfo `json:"data"`
 }
 
 type OperationResponse struct {
@@ -132,18 +130,18 @@ type ProxyResponse struct {
 }
 
 type TokenSearch struct {
-	TokenInfo
+	UserTokenInfo
 	Page  int `form:"page"`
 	Limit int `form:"limit"`
 }
 
 type TokenUpdate struct {
-	Before TokenInfo `json:"before"`
-	After  TokenInfo `json:"after"`
+	Before UserTokenInfo `json:"before"`
+	After  UserTokenInfo `json:"after"`
 }
 
 type TokenRemove struct {
-	Users []TokenInfo `json:"users"`
+	Users []UserTokenInfo `json:"users"`
 }
 
 type TokenDisable struct {
@@ -156,4 +154,63 @@ type TokenEnable struct {
 
 func (e *HTTPError) Error() string {
 	return e.Err.Error()
+}
+
+func ToUserTokenInfo(userToken model.UserToken) (UserTokenInfo, error) {
+	info := UserTokenInfo{
+		User:       userToken.User,
+		Token:      userToken.Token,
+		Comment:    userToken.Comment,
+		Enable:     userToken.Enable,
+		Server:     userToken.Server,
+		CreateDate: userToken.CreateDate,
+		ExpireDate: userToken.ExpireDate,
+	}
+	if userToken.Ports != "" {
+		if err := json.Unmarshal([]byte(userToken.Ports), &info.Ports); err != nil {
+			return info, err
+		}
+	}
+	if userToken.Domains != "" {
+		if err := json.Unmarshal([]byte(userToken.Domains), &info.Domains); err != nil {
+			return info, err
+		}
+	}
+	if userToken.Subdomains != "" {
+		if err := json.Unmarshal([]byte(userToken.Subdomains), &info.Subdomains); err != nil {
+			return info, err
+		}
+	}
+	return info, nil
+}
+
+func FromUserTokenInfo(info UserTokenInfo) (model.UserToken, error) {
+	userToken := model.UserToken{
+		User:       info.User,
+		Token:      info.Token,
+		Comment:    info.Comment,
+		Enable:     info.Enable,
+		Server:     info.Server,
+		CreateDate: info.CreateDate,
+		ExpireDate: info.ExpireDate,
+	}
+	ports, err := json.Marshal(info.Ports)
+	if err != nil {
+		return userToken, err
+	}
+	userToken.Ports = string(ports)
+
+	domains, err := json.Marshal(info.Domains)
+	if err != nil {
+		return userToken, err
+	}
+	userToken.Domains = string(domains)
+
+	subdomains, err := json.Marshal(info.Subdomains)
+	if err != nil {
+		return userToken, err
+	}
+	userToken.Subdomains = string(subdomains)
+
+	return userToken, nil
 }
