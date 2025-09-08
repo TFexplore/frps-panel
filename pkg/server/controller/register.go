@@ -1,9 +1,11 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
 	"os"
 	"path/filepath"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type HandleController struct {
@@ -14,6 +16,8 @@ type HandleController struct {
 	TokensFile            string
 	Dashboards            []DashboardConfig
 	CurrentDashboardIndex int
+	DB                    *gorm.DB
+	Database              DatabaseConfig
 }
 
 func NewHandleController(config *HandleController) *HandleController {
@@ -59,7 +63,7 @@ func (c *HandleController) Register(rootDir string, engine *gin.Engine) {
 
 	// 普通用户API路由
 	userApiGroup := engine.Group("/api/user", c.BasicAuth())
-	userApiGroup.GET("/info", c.MakeQueryUserInfoFunc())    // 新增获取用户信息的API
+	userApiGroup.GET("/info", c.MakeQueryUserInfoFunc())       // 新增获取用户信息的API
 	userApiGroup.GET("/proxies", c.MakeQueryUserProxiesFunc()) // 新增获取用户代理列表的API
 	userApiGroup.GET("/dashboards", c.MakeQueryDashboardsFunc())
 }

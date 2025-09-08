@@ -1,10 +1,10 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/BurntSushi/toml"
+	"frps-panel/pkg/server/model"
 	"log"
-	"os"
 	"strings"
 )
 
@@ -216,20 +216,64 @@ func tokensList(tokens map[string]TokenInfo) Tokens {
 	}
 }
 
-func (c *HandleController) saveToken() error {
-	tokenFile, err := os.Create(c.TokensFile)
+// ToTokenInfo converts a model.UserToken (DB model) to a TokenInfo (controller model).
+func ToTokenInfo(ut model.UserToken) (TokenInfo, error) {
+	var ports []any
+	if err := json.Unmarshal([]byte(ut.Ports), &ports); err != nil {
+		return TokenInfo{}, err
+	}
+
+	var domains []string
+	if err := json.Unmarshal([]byte(ut.Domains), &domains); err != nil {
+		return TokenInfo{}, err
+	}
+
+	var subdomains []string
+	if err := json.Unmarshal([]byte(ut.Subdomains), &subdomains); err != nil {
+		return TokenInfo{}, err
+	}
+
+	return TokenInfo{
+		User:       ut.User,
+		Token:      ut.Token,
+		Comment:    ut.Comment,
+		Ports:      ports,
+		Domains:    domains,
+		Subdomains: subdomains,
+		Enable:     ut.Enable,
+		Server:     ut.Server,
+		CreateDate: ut.CreateDate,
+		ExpireDate: ut.ExpireDate,
+	}, nil
+}
+
+// FromTokenInfo converts a TokenInfo (controller model) to a model.UserToken (DB model).
+func FromTokenInfo(ti TokenInfo) (model.UserToken, error) {
+	portsJSON, err := json.Marshal(ti.Ports)
 	if err != nil {
-		log.Printf("error to crate file %v: %v", c.TokensFile, err)
+		return model.UserToken{}, err
 	}
 
-	encoder := toml.NewEncoder(tokenFile)
-	encoder.Indent = "    "
-	if err = encoder.Encode(tokensList(c.Tokens)); err != nil {
-		log.Printf("error to encode tokens: %v", err)
-	}
-	if err = tokenFile.Close(); err != nil {
-		log.Printf("error to close file %v: %v", c.TokensFile, err)
+	domainsJSON, err := json.Marshal(ti.Domains)
+	if err != nil {
+		return model.UserToken{}, err
 	}
 
-	return err
+	subdomainsJSON, err := json.Marshal(ti.Subdomains)
+	if err != nil {
+		return model.UserToken{}, err
+	}
+
+	return model.UserToken{
+		User:       ti.User,
+		Token:      ti.Token,
+		Comment:    ti.Comment,
+		Ports:      string(portsJSON),
+		Domains:    string(domainsJSON),
+		Subdomains: string(subdomainsJSON),
+		Enable:     ti.Enable,
+		Server:     ti.Server,
+		CreateDate: ti.CreateDate,
+		ExpireDate: ti.ExpireDate,
+	}, nil
 }

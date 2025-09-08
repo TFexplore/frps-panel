@@ -1,15 +1,22 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"frps-panel/pkg/server"
 	"frps-panel/pkg/server/controller"
-	"github.com/BurntSushi/toml"
-	"github.com/spf13/cobra"
+	"frps-panel/pkg/server/model"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	"github.com/go-sql-driver/mysql"
+	"github.com/spf13/cobra"
+	gormysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 const version = "2.0.0"
@@ -39,13 +46,82 @@ var rootCmd = &cobra.Command{
 		}
 		rootDir := filepath.Dir(executable)
 
-		configDir := filepath.Dir(configFile)
-		tokensFile := filepath.Join(configDir, "frps-tokens.toml")
-
-		config, tls, err := parseConfigFile(configFile, tokensFile)
+		config, tls, err := parseConfigFile(configFile)
 		if err != nil {
 			log.Printf("fail to start frps-panel : %v", err)
 			return err
+		}
+
+		// Database initialization
+		if config.Database.Enable {
+			log.Println("Database is enabled, connecting to database...")
+			dsn := config.Database.Dsn
+			cfg, err := mysql.ParseDSN(dsn)
+			if err != nil {
+				log.Fatalf("failed to parse database DSN: %v", err)
+			}
+			dbName := cfg.DBName
+			cfg.DBName = ""
+			sqlDB, err := sql.Open("mysql", cfg.FormatDSN())
+			if err != nil {
+				log.Fatalf("failed to connect to database server: %v", err)
+			}
+			_, err = sqlDB.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", dbName))
+			if err != nil {
+				sqlDB.Close()
+				log.Fatalf("failed to create database: %v", err)
+			}
+			sqlDB.Close()
+			log.Printf("Database '%s' created or already exists.", dbName)
+			db, err := gorm.Open(gormysql.Open(dsn), &gorm.Config{})
+			if err != nil {
+				log.Fatalf("failed to connect database: %v", err)
+			}
+			config.DB = db
+			log.Println("Database connection successful.")
+
+			// Auto migrate the schema
+			err = db.AutoMigrate(&model.UserToken{})
+			if err != nil {
+				log.Fatalf("failed to auto migrate database schema: %v", err)
+			}
+			log.Println("Database schema migrated.")
+
+			// Load tokens from database
+			var userTokens []model.UserToken
+			result := db.Find(&userTokens)
+			if result.Error != nil {
+				log.Fatalf("failed to load tokens from database: %v", result.Error)
+			}
+
+			config.Tokens = make(map[string]controller.TokenInfo)
+			for _, ut := range userTokens {
+				ti, err := controller.ToTokenInfo(ut)
+				if err != nil {
+					log.Printf("error converting user token %s to token info: %v", ut.User, err)
+					continue
+				}
+				config.Tokens[ti.User] = ti
+			}
+			log.Printf("Loaded %d tokens from database.", len(config.Tokens))
+
+		} else {
+			log.Println("Database is disabled, using token file.")
+			configDir := filepath.Dir(configFile)
+			tokensFile := filepath.Join(configDir, "frps-tokens.toml")
+			config.TokensFile = tokensFile
+
+			var tokens controller.Tokens
+			_, err = toml.DecodeFile(tokensFile, &tokens)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					tokens = controller.Tokens{Tokens: make(map[string]controller.TokenInfo)}
+				} else {
+					log.Fatalf("decode token file %v error: %v", tokensFile, err)
+				}
+			}
+			config.Tokens = tokens.Tokens
+			log.Printf("Loaded %d tokens from file.", len(config.Tokens))
 		}
 
 		s, err := server.New(
@@ -70,21 +146,11 @@ func Execute() {
 	}
 }
 
-func parseConfigFile(configFile, tokensFile string) (controller.HandleController, server.TLS, error) {
+func parseConfigFile(configFile string) (controller.HandleController, server.TLS, error) {
 	var commonCfg controller.Common
-	var tokens controller.Tokens
 	_, err := toml.DecodeFile(configFile, &commonCfg)
 	if err != nil {
 		log.Fatalf("decode config file %v error: %v", configFile, err)
-	}
-
-	_, err = toml.DecodeFile(tokensFile, &tokens)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			tokens = controller.Tokens{Tokens: make(map[string]controller.TokenInfo)}
-		} else {
-			log.Fatalf("decode token file %v error: %v", tokensFile, err)
-		}
 	}
 
 	for i := range commonCfg.Dashboards {
@@ -109,12 +175,11 @@ func parseConfigFile(configFile, tokensFile string) (controller.HandleController
 	}
 
 	return controller.HandleController{
-		CommonInfo:          commonCfg.Common,
-		Tokens:              tokens.Tokens,
-		Version:             version,
-		ConfigFile:          configFile,
-		TokensFile:          tokensFile,
-		Dashboards:          commonCfg.Dashboards,
+		CommonInfo:            commonCfg.Common,
+		Version:               version,
+		ConfigFile:            configFile,
+		Dashboards:            commonCfg.Dashboards,
 		CurrentDashboardIndex: 0, // Default to the first dashboard
+		Database:              commonCfg.Database,
 	}, tls, nil
 }

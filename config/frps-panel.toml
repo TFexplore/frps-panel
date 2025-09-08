@@ -39,3 +39,12 @@ dashboard_addr = "47.104.221.41"
 dashboard_port = 7211
 dashboard_user = "admin"
 dashboard_pwd = "token123456"
+
+# database config
+[database]
+# enable database, otherwise use token file
+enable = true
+# database type, support mysql
+type = "mysql"
+# database connection string
+dsn = "root:2013wbh..@tcp(154.94.238.70:3306)/frps_panel?charset=utf8mb4&parseTime=True&loc=Local"

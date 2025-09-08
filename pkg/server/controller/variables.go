@@ -65,8 +65,15 @@ type HTTPError struct {
 	Err  error
 }
 
+type DatabaseConfig struct {
+	Enable bool   `toml:"enable"`
+	Type   string `toml:"type"`
+	Dsn    string `toml:"dsn"`
+}
+
 type Common struct {
-	Common CommonInfo `toml:"common"`
+	Common     CommonInfo        `toml:"common"`
+	Database   DatabaseConfig    `toml:"database"`
 	Dashboards []DashboardConfig `toml:"dashboards"`
 }
 
@@ -102,7 +109,7 @@ type TokenInfo struct {
 	Domains    []string `toml:"domains" json:"domains" from:"domains"`
 	Subdomains []string `toml:"subdomains" json:"subdomains" from:"subdomains"`
 	Enable     bool     `toml:"enable" json:"enable" form:"enable"`
-	Server     string   `toml:"server" json:"server" form:"server"`         // 新增服务器名称
+	Server     string   `toml:"server" json:"server" form:"server"`                // 新增服务器名称
 	CreateDate string   `toml:"create_date" json:"create_date" form:"create_date"` // 新增创建日期
 	ExpireDate string   `toml:"expire_date" json:"expire_date" form:"expire_date"` // 新增到期时间
 }

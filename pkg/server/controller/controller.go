@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	plugin "github.com/fatedier/frp/pkg/plugin/server"
-	ginI18n "github.com/gin-contrib/i18n"
-	"github.com/gin-contrib/sessions" // 导入 sessions 包
-	"github.com/gin-gonic/gin"
+	"frps-panel/pkg/server/model"
 	"io"
 	"log"
 	"net/http"
@@ -18,8 +15,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	plugin "github.com/fatedier/frp/pkg/plugin/server"
+	ginI18n "github.com/gin-contrib/i18n"
+	"github.com/gin-contrib/sessions" // 导入 sessions 包
+	"github.com/gin-gonic/gin"
 )
 
+// frps连接处理
 func (c *HandleController) MakeHandlerFunc() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		var response plugin.Response
@@ -78,6 +81,7 @@ func (c *HandleController) MakeHandlerFunc() gin.HandlerFunc {
 	}
 }
 
+// 后台登录
 func (c *HandleController) MakeLoginFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		if context.Request.Method == "GET" {
@@ -112,9 +116,9 @@ func (c *HandleController) MakeLoginFunc() func(context *gin.Context) {
 					redirectUrl = UserDashboardUrl
 				}
 				context.JSON(http.StatusOK, gin.H{
-					"success":   true,
-					"message":   ginI18n.MustGetMessage(context, "Login success"),
-					"redirect":  redirectUrl,
+					"success":  true,
+					"message":  ginI18n.MustGetMessage(context, "Login success"),
+					"redirect": redirectUrl,
 				})
 			} else {
 				context.JSON(http.StatusOK, gin.H{
@@ -126,6 +130,7 @@ func (c *HandleController) MakeLoginFunc() func(context *gin.Context) {
 	}
 }
 
+// 后台登出
 func (c *HandleController) MakeLogoutFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		ClearAuth(context)
@@ -133,6 +138,7 @@ func (c *HandleController) MakeLogoutFunc() func(context *gin.Context) {
 	}
 }
 
+// 获取frps服务器后台面板信息
 func (c *HandleController) MakeIndexFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		session := sessions.Default(context)
@@ -201,20 +207,21 @@ func (c *HandleController) MakeIndexFunc() func(context *gin.Context) {
 			"CurrentConnections":           ginI18n.MustGetMessage(context, "Current Connections"),
 			"ClientCounts":                 ginI18n.MustGetMessage(context, "Client Counts"),
 			"ProxyCounts":                  ginI18n.MustGetMessage(context, "Proxy Counts"),
-			"Server":                       ginI18n.MustGetMessage(context, "Server"), // 新增
-			"CreateDate":                   ginI18n.MustGetMessage(context, "Create Date"), // 新增
-			"ExpireDate":                   ginI18n.MustGetMessage(context, "Expire Date"), // 新增
-			"PleaseInputServerName":        ginI18n.MustGetMessage(context, "Please input server name"), // 新增
+			"Server":                       ginI18n.MustGetMessage(context, "Server"),                    // 新增
+			"CreateDate":                   ginI18n.MustGetMessage(context, "Create Date"),               // 新增
+			"ExpireDate":                   ginI18n.MustGetMessage(context, "Expire Date"),               // 新增
+			"PleaseInputServerName":        ginI18n.MustGetMessage(context, "Please input server name"),  // 新增
 			"PleaseSelectExpireDate":       ginI18n.MustGetMessage(context, "Please select expire date"), // 新增
-			"AllServers":                   ginI18n.MustGetMessage(context, "All Servers"), // 新增
-			"ConfigTemplate":               ginI18n.MustGetMessage(context, "ConfigTemplate"), // 新增
-			"PleaseInputConfigTemplate":               ginI18n.MustGetMessage(context, "PleaseInputConfigTemplate"), // 新增
-			"ExportConfig":               ginI18n.MustGetMessage(context, "ExportConfig"), // 新增
-			"EditConfigTemplate":               ginI18n.MustGetMessage(context, "EditConfigTemplate"), // 新增
+			"AllServers":                   ginI18n.MustGetMessage(context, "All Servers"),               // 新增
+			"ConfigTemplate":               ginI18n.MustGetMessage(context, "ConfigTemplate"),            // 新增
+			"PleaseInputConfigTemplate":    ginI18n.MustGetMessage(context, "PleaseInputConfigTemplate"), // 新增
+			"ExportConfig":                 ginI18n.MustGetMessage(context, "ExportConfig"),              // 新增
+			"EditConfigTemplate":           ginI18n.MustGetMessage(context, "EditConfigTemplate"),        // 新增
 		})
 	}
 }
 
+// 语言相关
 func (c *HandleController) MakeUserDashboardFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		session := sessions.Default(context)
@@ -225,49 +232,50 @@ func (c *HandleController) MakeUserDashboardFunc() func(context *gin.Context) {
 		}
 
 		context.HTML(http.StatusOK, "user_dashboard.html", gin.H{
-			"version":     c.Version,
-			"FrpsPanel":   ginI18n.MustGetMessage(context, "Frps Panel"),
-			"User":        fmt.Sprintf("%v", currentUser),
-			"Logout":      ginI18n.MustGetMessage(context, "Logout"),
-			"MyInfo":      ginI18n.MustGetMessage(context, "My Info"),
-			"MyProxies":   ginI18n.MustGetMessage(context, "My Proxies"),
-			"Name":        ginI18n.MustGetMessage(context, "Name"),
-			"Type":        ginI18n.MustGetMessage(context, "Type"),
-			"Domains":     ginI18n.MustGetMessage(context, "Domains"),
-			"SubDomain":   ginI18n.MustGetMessage(context, "SubDomain"),
-			"Locations":   ginI18n.MustGetMessage(context, "Locations"),
-			"HostRewrite": ginI18n.MustGetMessage(context, "HostRewrite"),
-			"Encryption":  ginI18n.MustGetMessage(context, "Encryption"),
-			"Compression": ginI18n.MustGetMessage(context, "Compression"),
-			"Addr":        ginI18n.MustGetMessage(context, "Addr"),
-			"LastStart":   ginI18n.MustGetMessage(context, "Last Start"),
-			"LastClose":   ginI18n.MustGetMessage(context, "Last Close"),
-			"Connections": ginI18n.MustGetMessage(context, "Connections"),
-			"TrafficIn":   ginI18n.MustGetMessage(context, "Traffic In"),
-			"TrafficOut":  ginI18n.MustGetMessage(context, "Traffic Out"),
-			"ClientVersion": ginI18n.MustGetMessage(context, "Client Version"),
+			"version":           c.Version,
+			"FrpsPanel":         ginI18n.MustGetMessage(context, "Frps Panel"),
+			"User":              fmt.Sprintf("%v", currentUser),
+			"Logout":            ginI18n.MustGetMessage(context, "Logout"),
+			"MyInfo":            ginI18n.MustGetMessage(context, "My Info"),
+			"MyProxies":         ginI18n.MustGetMessage(context, "My Proxies"),
+			"Name":              ginI18n.MustGetMessage(context, "Name"),
+			"Type":              ginI18n.MustGetMessage(context, "Type"),
+			"Domains":           ginI18n.MustGetMessage(context, "Domains"),
+			"SubDomain":         ginI18n.MustGetMessage(context, "SubDomain"),
+			"Locations":         ginI18n.MustGetMessage(context, "Locations"),
+			"HostRewrite":       ginI18n.MustGetMessage(context, "HostRewrite"),
+			"Encryption":        ginI18n.MustGetMessage(context, "Encryption"),
+			"Compression":       ginI18n.MustGetMessage(context, "Compression"),
+			"Addr":              ginI18n.MustGetMessage(context, "Addr"),
+			"LastStart":         ginI18n.MustGetMessage(context, "Last Start"),
+			"LastClose":         ginI18n.MustGetMessage(context, "Last Close"),
+			"Connections":       ginI18n.MustGetMessage(context, "Connections"),
+			"TrafficIn":         ginI18n.MustGetMessage(context, "Traffic In"),
+			"TrafficOut":        ginI18n.MustGetMessage(context, "Traffic Out"),
+			"ClientVersion":     ginI18n.MustGetMessage(context, "Client Version"),
 			"TrafficStatistics": ginI18n.MustGetMessage(context, "Traffic Statistics"),
-			"online":      ginI18n.MustGetMessage(context, "online"),
-			"offline":     ginI18n.MustGetMessage(context, "offline"),
-			"Total":       ginI18n.MustGetMessage(context, "Total"),
-			"Items":       ginI18n.MustGetMessage(context, "Items"),
-			"Goto":        ginI18n.MustGetMessage(context, "Go to"),
-			"PerPage":     ginI18n.MustGetMessage(context, "Per Page"),
-			"NotSet":      ginI18n.MustGetMessage(context, "Not Set"),
-			"Proxy":       ginI18n.MustGetMessage(context, "Proxy"),
-			"Token":       ginI18n.MustGetMessage(context, "Token"),
-			"Notes":       ginI18n.MustGetMessage(context, "Notes"),
-			"AllowedPorts": ginI18n.MustGetMessage(context, "Allowed ports"),
-			"AllowedDomains": ginI18n.MustGetMessage(context, "Allowed domains"),
+			"online":            ginI18n.MustGetMessage(context, "online"),
+			"offline":           ginI18n.MustGetMessage(context, "offline"),
+			"Total":             ginI18n.MustGetMessage(context, "Total"),
+			"Items":             ginI18n.MustGetMessage(context, "Items"),
+			"Goto":              ginI18n.MustGetMessage(context, "Go to"),
+			"PerPage":           ginI18n.MustGetMessage(context, "Per Page"),
+			"NotSet":            ginI18n.MustGetMessage(context, "Not Set"),
+			"Proxy":             ginI18n.MustGetMessage(context, "Proxy"),
+			"Token":             ginI18n.MustGetMessage(context, "Token"),
+			"Notes":             ginI18n.MustGetMessage(context, "Notes"),
+			"AllowedPorts":      ginI18n.MustGetMessage(context, "Allowed ports"),
+			"AllowedDomains":    ginI18n.MustGetMessage(context, "Allowed domains"),
 			"AllowedSubdomains": ginI18n.MustGetMessage(context, "Allowed subdomains"),
-			"NotLimit":    ginI18n.MustGetMessage(context, "Not limit"),
-			"None":        ginI18n.MustGetMessage(context, "None"),
-			"CreateDate":  ginI18n.MustGetMessage(context, "Create Date"),
-			"ExpireDate":  ginI18n.MustGetMessage(context, "Expire Date"),
+			"NotLimit":          ginI18n.MustGetMessage(context, "Not limit"),
+			"None":              ginI18n.MustGetMessage(context, "None"),
+			"CreateDate":        ginI18n.MustGetMessage(context, "Create Date"),
+			"ExpireDate":        ginI18n.MustGetMessage(context, "Expire Date"),
 		})
 	}
 }
 
+// 语言相关
 func (c *HandleController) MakeLangFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		context.JSON(http.StatusOK, gin.H{
@@ -332,13 +340,14 @@ func (c *HandleController) MakeLangFunc() func(context *gin.Context) {
 			"Items":                 ginI18n.MustGetMessage(context, "Items"),
 			"Goto":                  ginI18n.MustGetMessage(context, "Go to"),
 			"PerPage":               ginI18n.MustGetMessage(context, "Per Page"),
-			"ConfigTemplate":               ginI18n.MustGetMessage(context, "ConfigTemplate"), // 新增
-			"PortCount":               ginI18n.MustGetMessage(context, "PortCount"), // 新增
-			"PleaseInputPortCount":               ginI18n.MustGetMessage(context, "PleaseInputPortCount"), // 新增
+			"ConfigTemplate":        ginI18n.MustGetMessage(context, "ConfigTemplate"),       // 新增
+			"PortCount":             ginI18n.MustGetMessage(context, "PortCount"),            // 新增
+			"PleaseInputPortCount":  ginI18n.MustGetMessage(context, "PleaseInputPortCount"), // 新增
 		})
 	}
 }
 
+// 后台获取最大端口
 func (c *HandleController) MakeGetMaxPortFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		serverName := context.Query("server")
@@ -387,6 +396,7 @@ func (c *HandleController) MakeGetMaxPortFunc() func(context *gin.Context) {
 	}
 }
 
+// 后台获取最大端口列表
 func (c *HandleController) MakeGetAllMaxPortsFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		maxPortsMap := make(map[string]int)
@@ -428,6 +438,7 @@ func (c *HandleController) MakeGetAllMaxPortsFunc() func(context *gin.Context) {
 	}
 }
 
+// 查询用户列表
 func (c *HandleController) MakeQueryUserInfoFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		session := sessions.Default(context)
@@ -463,6 +474,7 @@ func (c *HandleController) MakeQueryUserInfoFunc() func(context *gin.Context) {
 	}
 }
 
+// 用户查询自己的连接代理信息
 func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		session := sessions.Default(context)
@@ -470,10 +482,10 @@ func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context)
 
 		if currentUser == "" {
 			context.JSON(http.StatusUnauthorized, gin.H{
-				"code":    ParamError,
-				"msg":     "User not logged in",
-				"count":   0,
-				"data":    []interface{}{},
+				"code":  ParamError,
+				"msg":   "User not logged in",
+				"count": 0,
+				"data":  []interface{}{},
 			})
 			return
 		}
@@ -547,19 +559,19 @@ func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context)
 			if res.Code == http.StatusOK {
 				var frpsProxies struct {
 					Proxies []struct {
-						Name        string `json:"name"`
-						Type        string `json:"type"`
-						Status      string `json:"status"`
-						Connections int    `json:"curConns"`
-						TrafficIn   int64  `json:"todayTrafficIn"`
-						TrafficOut  int64  `json:"todayTrafficOut"`
+						Name          string `json:"name"`
+						Type          string `json:"type"`
+						Status        string `json:"status"`
+						Connections   int    `json:"curConns"`
+						TrafficIn     int64  `json:"todayTrafficIn"`
+						TrafficOut    int64  `json:"todayTrafficOut"`
 						ClientVersion string `json:"clientVersion"`
-						LastStart   string `json:"lastStartTime"`
-						LastClose   string `json:"lastCloseTime"`
-						Conf        struct {
+						LastStart     string `json:"lastStartTime"`
+						LastClose     string `json:"lastCloseTime"`
+						Conf          struct {
 							RemotePort int `json:"remotePort"`
 							Transport  struct {
-								UseEncryption bool `json:"useEncryption"`
+								UseEncryption  bool `json:"useEncryption"`
 								UseCompression bool `json:"useCompression"`
 							} `json:"transport"`
 						} `json:"conf"`
@@ -579,10 +591,10 @@ func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context)
 							"Name":           proxy.Name,
 							"Type":           proxy.Type,
 							"Status":         proxy.Status,
-							"Connections":   proxy.Connections,
-							"TrafficIn":     proxy.TrafficIn,
-							"TrafficOut":    proxy.TrafficOut,
-							"ClientVersion": proxy.ClientVersion,
+							"Connections":    proxy.Connections,
+							"TrafficIn":      proxy.TrafficIn,
+							"TrafficOut":     proxy.TrafficOut,
+							"ClientVersion":  proxy.ClientVersion,
 							"LastStart":      proxy.LastStart,
 							"LastClose":      proxy.LastClose,
 							"RemotePort":     proxy.Conf.RemotePort,
@@ -613,6 +625,7 @@ func (c *HandleController) MakeQueryUserProxiesFunc() func(context *gin.Context)
 	}
 }
 
+// 管理员查询用户信息
 func (c *HandleController) MakeQueryTokensFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		session := sessions.Default(context)
@@ -710,20 +723,32 @@ func (c *HandleController) MakeAddTokenFunc() func(context *gin.Context) {
 		info.Ports = cleanPorts(info.Ports)
 		info.Domains = cleanStrings(info.Domains)
 		info.Subdomains = cleanStrings(info.Subdomains)
-		info.Server = cleanString(info.Server) // 清理服务器名称
+		info.Server = cleanString(info.Server)         // 清理服务器名称
 		info.ExpireDate = cleanString(info.ExpireDate) // 清理到期时间
 
-		c.Tokens[info.User] = info
-
-		err = c.saveToken()
-		if err != nil {
-			response.Success = false
-			response.Code = SaveError
-			response.Message = fmt.Sprintf("user add failed, error : %v", err)
-			log.Printf(response.Message)
-			context.JSON(http.StatusOK, &response)
-			return
+		// Save to database or file
+		if c.DB != nil {
+			userToken, err := FromTokenInfo(info)
+			if err != nil {
+				response.Success = false
+				response.Code = SaveError
+				response.Message = fmt.Sprintf("user add failed, data conversion error : %v", err)
+				log.Printf(response.Message)
+				context.JSON(http.StatusOK, &response)
+				return
+			}
+			result := c.DB.Create(&userToken)
+			if result.Error != nil {
+				response.Success = false
+				response.Code = SaveError
+				response.Message = fmt.Sprintf("user add failed, db error : %v", result.Error)
+				log.Printf(response.Message)
+				context.JSON(http.StatusOK, &response)
+				return
+			}
 		}
+
+		c.Tokens[info.User] = info
 
 		context.JSON(0, &response)
 	}
@@ -771,21 +796,32 @@ func (c *HandleController) MakeUpdateTokensFunc() func(context *gin.Context) {
 		after.Ports = cleanPorts(after.Ports)
 		after.Domains = cleanStrings(after.Domains)
 		after.Subdomains = cleanStrings(after.Subdomains)
-		after.Server = cleanString(after.Server) // 清理服务器名称
+		after.Server = cleanString(after.Server)         // 清理服务器名称
 		after.ExpireDate = cleanString(after.ExpireDate) // 清理到期时间
-		after.CreateDate = before.CreateDate // 创建日期不应改变
+		after.CreateDate = before.CreateDate             // 创建日期不应改变
 
-		c.Tokens[after.User] = after
-
-		err = c.saveToken()
-		if err != nil {
-			response.Success = false
-			response.Code = SaveError
-			response.Message = fmt.Sprintf("user update failed, error : %v", err)
-			log.Printf(response.Message)
-			context.JSON(http.StatusOK, &response)
-			return
+		// Save to database or file
+		if c.DB != nil {
+			userToken, err := FromTokenInfo(after)
+			if err != nil {
+				response.Success = false
+				response.Code = SaveError
+				response.Message = fmt.Sprintf("user update failed, data conversion error : %v", err)
+				log.Printf(response.Message)
+				context.JSON(http.StatusOK, &response)
+				return
+			}
+			result := c.DB.Save(&userToken)
+			if result.Error != nil {
+				response.Success = false
+				response.Code = SaveError
+				response.Message = fmt.Sprintf("user update failed, db error : %v", result.Error)
+				log.Printf(response.Message)
+				context.JSON(http.StatusOK, &response)
+				return
+			}
 		}
+		c.Tokens[after.User] = after
 
 		context.JSON(http.StatusOK, &response)
 	}
@@ -819,17 +855,21 @@ func (c *HandleController) MakeRemoveTokensFunc() func(context *gin.Context) {
 		}
 
 		for _, user := range remove.Users {
+			if c.DB != nil {
+				result := c.DB.Delete(&model.UserToken{}, "user = ?", user.User)
+				if result.Error != nil {
+					response.Success = false
+					response.Code = SaveError
+					response.Message = fmt.Sprintf("user remove failed for %s, db error : %v", user.User, result.Error)
+					log.Printf(response.Message)
+					context.JSON(http.StatusOK, &response)
+					return
+				}
+			}
 			delete(c.Tokens, user.User)
 		}
 
-		err = c.saveToken()
-		if err != nil {
-			response.Success = false
-			response.Code = SaveError
-			response.Message = fmt.Sprintf("user update failed, error : %v", err)
-			log.Printf(response.Message)
-			context.JSON(http.StatusOK, &response)
-			return
+		if c.DB == nil {
 		}
 
 		context.JSON(http.StatusOK, &response)
@@ -866,18 +906,21 @@ func (c *HandleController) MakeDisableTokensFunc() func(context *gin.Context) {
 		for _, user := range disable.Users {
 			token := c.Tokens[user.User]
 			token.Enable = false
+			if c.DB != nil {
+				result := c.DB.Model(&model.UserToken{}).Where("user = ?", user.User).Update("enable", false)
+				if result.Error != nil {
+					response.Success = false
+					response.Code = SaveError
+					response.Message = fmt.Sprintf("user disable failed for %s, db error : %v", user.User, result.Error)
+					log.Printf(response.Message)
+					context.JSON(http.StatusOK, &response)
+					return
+				}
+			}
 			c.Tokens[user.User] = token
 		}
 
-		err = c.saveToken()
-
-		if err != nil {
-			response.Success = false
-			response.Code = SaveError
-			response.Message = fmt.Sprintf("disable failed, error : %v", err)
-			log.Printf(response.Message)
-			context.JSON(http.StatusOK, &response)
-			return
+		if c.DB == nil {
 		}
 
 		context.JSON(http.StatusOK, &response)
@@ -914,24 +957,28 @@ func (c *HandleController) MakeEnableTokensFunc() func(context *gin.Context) {
 		for _, user := range enable.Users {
 			token := c.Tokens[user.User]
 			token.Enable = true
+			if c.DB != nil {
+				result := c.DB.Model(&model.UserToken{}).Where("user = ?", user.User).Update("enable", true)
+				if result.Error != nil {
+					response.Success = false
+					response.Code = SaveError
+					response.Message = fmt.Sprintf("user enable failed for %s, db error : %v", user.User, result.Error)
+					log.Printf(response.Message)
+					context.JSON(http.StatusOK, &response)
+					return
+				}
+			}
 			c.Tokens[user.User] = token
 		}
 
-		err = c.saveToken()
-
-		if err != nil {
-			log.Printf("enable failed, error : %v", err)
-			response.Success = false
-			response.Code = SaveError
-			response.Message = "enable failed"
-			context.JSON(http.StatusOK, &response)
-			return
+		if c.DB == nil {
 		}
 
 		context.JSON(http.StatusOK, &response)
 	}
 }
 
+// 获取所有服务器信息
 func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		session := sessions.Default(context)
@@ -969,6 +1016,7 @@ func (c *HandleController) MakeQueryDashboardsFunc() func(context *gin.Context) 
 	}
 }
 
+// 切换当前显示的服务器信息
 func (c *HandleController) MakeSwitchDashboardFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		var req struct {
@@ -998,6 +1046,7 @@ func (c *HandleController) MakeSwitchDashboardFunc() func(context *gin.Context) 
 	}
 }
 
+// 保存模板信息
 func (c *HandleController) MakeSaveConfigTemplateFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		var req struct {
@@ -1052,6 +1101,7 @@ func (c *HandleController) MakeSaveConfigTemplateFunc() func(context *gin.Contex
 	}
 }
 
+// 获取当前服务器的面板信息
 func (c *HandleController) MakeProxyFunc() func(context *gin.Context) {
 	return func(context *gin.Context) {
 		var client *http.Client
